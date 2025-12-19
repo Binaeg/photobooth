@@ -759,6 +759,30 @@ def main():
         return CameraControl.update_config(vars(args))
     else:
         cam = CameraControl(args)
+        if args.trigger_capture:
+            if args.event_file:
+                # Polling bis Event eintritt
+                log.info("Waiting for event: %s" % args.event_file)
+                while True:
+                    events = cam.camera.wait_for_event(1000)  # Zeit in ms
+                    for e in events:
+                        if hasattr(e, "name") and e.name == args.event_file:
+                            file_path = e.folder + "/" + e.name
+                            target_filename = (
+                                args.filename % e.name if args.filename else e.name
+                            )
+                            cam.capture_image(target_filename)
+                            log.info("Captured event file saved as %s" % target_filename)
+                            break
+                    else:
+                        continue
+                    break
+            else:
+                # Sofortige Aufnahme
+                target_filename = args.filename or "capture.jpg"
+                cam.capture_image(target_filename)
+                log.info("Captured image saved as %s" % target_filename)
+
         signal.signal(signal.SIGINT, cam.exit_gracefully)
         signal.signal(signal.SIGTERM, cam.exit_gracefully)
 
