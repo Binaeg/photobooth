@@ -30,6 +30,19 @@ $remoteBuzzer = true;
 include PathUtility::getAbsolutePath('template/components/main.head.php');
 
 ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.chroma-background-selector-image').forEach(img => {
+    img.addEventListener('click', () => {
+      // Simuliert Klick auf den "Take Photo"-Button
+      const btn = document.querySelector('.take-chroma');
+      if (btn) {
+        btn.click();
+      }
+    });
+  });
+});
+</script>
 <body class="gallery-mode--overlay ">
 
 <?php include PathUtility::getAbsolutePath('template/components/chroma.canvas.php'); ?>
@@ -37,7 +50,11 @@ include PathUtility::getAbsolutePath('template/components/main.head.php');
 
 <div class="stage stage--chroma rotarygroup" data-stage="start">
     <div class="stage-inner">
-        <div class="stage-message stage-message--error"><?=$languageService->translate('chromaInfoBefore')?></div>
+        <div class="stage-message" style="color: white;
+            text-shadow: -1px -1px 0 #000,
+                         1px -1px 0 #000,
+                        -1px  1px 0 #000,
+                         1px  1px 0 #000; top: 86%;"><?=$languageService->translate('chromaInfoBefore')?></div>
         <?php include PathUtility::getAbsolutePath('template/components/chroma.background.selector.php'); ?>
         <div class="buttonbar buttonbar--top">
             <?= ($config['gallery']['enabled']) ? ComponentUtility::renderButton('gallery', $config['icons']['gallery'], 'gallery-button') : '' ?>

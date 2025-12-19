@@ -26,6 +26,7 @@ function getBasePreviewUrl() {
 }
 
 const photoboothPreview = (function () {
+    photoboothTools.console.logDev('Preview: TEST LOG');
     // vars
     const CameraDisplayMode = {
             INIT: 1,
@@ -269,6 +270,7 @@ const photoboothPreview = (function () {
 })();
 
 $(function () {
+    photoboothTools.console.log('Preview: Preview loading.');
     photoboothPreview.init();
     photoboothTools.console.log('Preview: Preview functions available.');
 });

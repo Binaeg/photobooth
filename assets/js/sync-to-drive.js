@@ -50,10 +50,13 @@ class SyncToDrive {
 
     validateRsync() {
         try {
+            log(`Executing dry-run command: ${command} --dry-run`);
             execSync('command -v rsync', { stdio: 'ignore' });
         } catch (err) {
-            log(err.message);
-            error('Error: rsync is not installed. Please install it and try again.');
+            log('test' + err.message);
+    	    if (err.stdout) log('STDOUT: ' + err.stdout.toString());
+    	    if (err.stderr) log('STDERR: ' + err.stderr.toString());
+	    error('Error: rsync is not installed. Please install it and try again.');
         }
     }
 
@@ -126,11 +129,13 @@ class SyncToDrive {
         ].join(' ');
 
         log('Validating rsync command...');
+	log(`Executing dry-run command: ${command} --dry-run`);
         try {
             execSync(command + ' --dry-run', { stdio: 'ignore' });
             // eslint-disable-next-line no-unused-vars
         } catch (err) {
-            throw new Error('Error: Rsync validation failed. Check permissions and paths.');
+            log('Rsync dry-run failed: ' + err.message);
+	    throw new Error('Error: Rsync validation failed. Check permissions and paths.');
         }
 
         log('Starting sync to USB drive ...');

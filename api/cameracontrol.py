@@ -66,7 +66,7 @@ def create_virtual_camera(video_nr=9):
     """
 
     subprocess.run(
-        f'modprobe v4l2loopback video_nr={video_nr} card_label="Gphoto2 Webcam" exclusive_caps=1',
+        f'modprobe v4l2loopback video_nr={video_nr} card_label="Gphoto2 Webcam" exclusive_caps=0',
         shell=True,
         check=True,
         stdout=subprocess.DEVNULL,
@@ -311,6 +311,9 @@ class CameraControl:
         """
         input_config = ["-i", "-", "-vcodec", "rawvideo", "-pix_fmt", "yuv420p"]
         stream = ["-preset", "ultrafast", "-f", "v4l2", self.args.device]
+        #input_config = ["-f", "rawvideo", "-pix_fmt", "yuv420p", "-video_size", "640x480", "-framerate", "30", "-i", "-"]
+        #stream = ["-f", "v4l2", "-pix_fmt", "yuyv422", "-s", "640x480", "-r", "30", self.args.device]
+
         pre_input = []
         filters = []
         file_output = []
@@ -689,6 +692,34 @@ def main():
         ),
         dest="chroma_sensitivity",
     )
+
+    """
+    NEW CODE
+    """
+    parser.add_argument(
+        "--trigger-capture",
+        action="store_true",
+        help="Trigger capture on start or via message",
+    )
+
+    parser.add_argument(
+        "--wait-event-and-download",
+        type=str,
+        help="Wait for a camera event and download the file when ready",
+        dest="event_file",
+    )
+
+    parser.add_argument(
+        "--filename",
+        type=str,
+        help="Filename template for the captured image (use %s if required)",
+        dest="filename",
+    )
+
+    """
+    END NEW CODE
+    """
+
     parser.add_argument(
         "--chromaBlend",
         type=float,
