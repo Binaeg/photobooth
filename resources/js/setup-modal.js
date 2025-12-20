@@ -73,7 +73,7 @@ const photoboothSetup = (function () {
                 console.log('Autofocus capture result:', result);
                 
                 if (result.success) {
-                    api.showMessage('✓ Kamera erfolgreich fokussiert! Setup abgeschlossen.', 'success');
+                    api.showMessage('Kamera erfolgreich fokussiert! Setup abgeschlossen.', 'success');
                     
                     // Mark setup as completed for this browser session
                     api.markSetupCompleted();
@@ -85,14 +85,14 @@ const photoboothSetup = (function () {
                         api.deleteSetupImage(result.file);
                     }, 2000);
                 } else {
-                    api.showMessage('⚠ Fehler beim Fokussieren. Bitte erneut versuchen.', 'error');
+                    api.showMessage('Fehler beim Fokussieren. Bitte erneut versuchen. Wenn der Fehler weiterhin auftritt, versuche den fotografierten Bereich besser auszuleuchten. Das Licht kann später dunkler sein.', 'error');
                     $button.prop('disabled', false);
                     $button.html(originalButtonText);
                 }
             })
             .fail(function (xhr, status, error) {
                 console.error('Autofocus capture failed:', error);
-                api.showMessage('✗ Fehler: Verbindung zur Kamera fehlgeschlagen.', 'error');
+                api.showMessage('Fehler: Verbindung zur Kamera fehlgeschlagen.', 'error');
                 $button.prop('disabled', false);
                 $button.html(originalButtonText);
             });
