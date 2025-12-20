@@ -54,6 +54,7 @@ include PathUtility::getAbsolutePath('template/components/main.head.php');
 ?>
 
 <body class="gallery-mode--overlay ">
+<?php include PathUtility::getAbsolutePath('template/components/setup.modal.php'); ?>
 <?php include PathUtility::getAbsolutePath('template/components/video.background.php'); ?>
 <?php include PathUtility::getAbsolutePath('template/components/preview.php'); ?>
 
@@ -99,6 +100,7 @@ if ($config['ui']['selfie_mode']) {
 <script src="<?=$assetService->getUrl('resources/js/preview.js')?>"></script>
 <script src="<?=$assetService->getUrl('resources/js/virtualKeyboard.js')?>"></script>
 <script src="<?=$assetService->getUrl('resources/js/core.js')?>"></script>
+<script src="<?=$assetService->getUrl('resources/js/setup-modal.js')?>"></script>
 
 <?php include PathUtility::getAbsolutePath('template/components/start.adminshortcut.php'); ?>
 <?php ProcessService::getInstance()->boot(); ?>
