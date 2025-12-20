@@ -252,6 +252,33 @@ class CameraControl:
         log.info("Video disabled")
 
     def handle_message(self, message):
+
+        # NEW CODE
+        if getattr(args, "trigger_capture", False):
+            filename = args.filename
+            if not filename:
+                self.socket.send_string("failure")
+                return False
+
+            log.info("Trigger capture requested")
+
+            self.camera.trigger_capture()
+
+            while True:
+                event_type, event_data = self.camera.wait_for_event(1000)
+
+                if event_type == gp.GP_EVENT_FILE_ADDED:
+                    camera_file = self.camera.file_get(
+                        event_data.folder,
+                        event_data.name,
+                        gp.GP_FILE_TYPE_NORMAL,
+                    )
+                    camera_file.save(filename)
+                    self.socket.send_string("Image captured")
+                    return False
+        # END NEW CODE
+
+
         """
         Evaluate message and adjust config
         """
@@ -759,6 +786,8 @@ def main():
         return CameraControl.update_config(vars(args))
     else:
         cam = CameraControl(args)
+
+        # NEW CODE
         if args.trigger_capture:
             if args.event_file:
                 # Polling bis Event eintritt
@@ -782,6 +811,8 @@ def main():
                 target_filename = args.filename or "capture.jpg"
                 cam.capture_image(target_filename)
                 log.info("Captured image saved as %s" % target_filename)
+
+        # END NEW CODE
 
         signal.signal(signal.SIGINT, cam.exit_gracefully)
         signal.signal(signal.SIGTERM, cam.exit_gracefully)
