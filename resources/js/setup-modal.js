@@ -6,14 +6,14 @@ const photoboothSetup = (function () {
     const api = {};
     let setupCompleted = false;
 
-    // Check if setup is already completed
+    // Check if setup is already completed in this browser session
     api.isSetupCompleted = function () {
-        return localStorage.getItem('photoboothSetupCompleted') === 'true';
+        return sessionStorage.getItem('photoboothSetupCompleted') === 'true';
     };
 
-    // Mark setup as completed
+    // Mark setup as completed for this browser session
     api.markSetupCompleted = function () {
-        localStorage.setItem('photoboothSetupCompleted', 'true');
+        sessionStorage.setItem('photoboothSetupCompleted', 'true');
         setupCompleted = true;
     };
 
@@ -75,6 +75,9 @@ const photoboothSetup = (function () {
                 if (result.success) {
                     api.showMessage('✓ Kamera erfolgreich fokussiert! Setup abgeschlossen.', 'success');
                     
+                    // Mark setup as completed for this browser session
+                    api.markSetupCompleted();
+                    
                     // Close modal after 2 seconds
                     setTimeout(function () {
                         api.hideSetupModal();
@@ -110,8 +113,13 @@ const photoboothSetup = (function () {
     api.init = function () {
         console.log('Initializing photobooth setup...');
         
-        // Always show modal on every application start
-        console.log('Showing setup modal on page load...');
+        // Check if setup was already completed in this browser session
+        if (api.isSetupCompleted()) {
+            console.log('Setup already completed in this session, skipping modal.');
+            return;
+        }
+        
+        console.log('Setup not completed, showing modal on page load...');
         
         // Show modal on page load
         $(document).ready(function () {
