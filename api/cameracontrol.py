@@ -251,17 +251,6 @@ class CameraControl:
             log.error(e)
         log.info("Video disabled")
 
-    # new
-    def list_config(self):
-        """
-        List all available configuration names from the camera
-        """
-        config = self.camera.get_config()
-        for i in range(config.count_children()):
-            child = config.get_child(i)
-            print(child.get_name())
-    # end new
-
     def handle_message(self, message):
         """
         Evaluate message and adjust config
@@ -274,12 +263,6 @@ class CameraControl:
         video_settings_were_updated = (
             video_settings_were_updated or self.handle_video_params(args)
         )
-        # new
-        if args.list_config:
-            self.list_config()
-            self.socket.send_string("Config listed")
-            return False
-        # end new
         self.handle_bsm_timeout(args)
         if args.config is not None and args.config != self.args.config:
             self.args.config = args.config
@@ -597,16 +580,6 @@ def main():
         ),
         allow_abbrev=False,
     )
-    # new
-    parser.add_argument(
-        "--list-config",
-        action="store_true",
-        help="List all available configuration settings from the camera",
-        dest="list_config",
-    )
-    # end new
-
-
     parser.add_argument(
         "-d",
         "--device",
@@ -760,19 +733,8 @@ def main():
         cam = CameraControl(args)
         signal.signal(signal.SIGINT, cam.exit_gracefully)
         signal.signal(signal.SIGTERM, cam.exit_gracefully)
-
-        # new
-        if args.list_config:
-            try:
-                cam.list_config()
-                return 0
-            except gp.GPhoto2Error as e:
-                log.error("An error occurred: %s" % e)
-                return 1
-            
-        elif args.imgpath is not None:
-        # new
-        #elif args.imgpath is not None:
+           
+        if args.imgpath is not None:
             try:
                 cam.capture_image(args.imgpath)
                 if args.chroma_sensitivity is not None and args.chroma_sensitivity > 0:
