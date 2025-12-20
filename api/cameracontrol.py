@@ -252,33 +252,6 @@ class CameraControl:
         log.info("Video disabled")
 
     def handle_message(self, message):
-
-        # NEW CODE
-        if getattr(args, "trigger_capture", False):
-            filename = args.filename
-            if not filename:
-                self.socket.send_string("failure")
-                return False
-
-            log.info("Trigger capture requested")
-
-            self.camera.trigger_capture()
-
-            while True:
-                event_type, event_data = self.camera.wait_for_event(1000)
-
-                if event_type == gp.GP_EVENT_FILE_ADDED:
-                    camera_file = self.camera.file_get(
-                        event_data.folder,
-                        event_data.name,
-                        gp.GP_FILE_TYPE_NORMAL,
-                    )
-                    camera_file.save(filename)
-                    self.socket.send_string("Image captured")
-                    return False
-        # END NEW CODE
-
-
         """
         Evaluate message and adjust config
         """
@@ -719,34 +692,6 @@ def main():
         ),
         dest="chroma_sensitivity",
     )
-
-    """
-    NEW CODE
-    """
-    parser.add_argument(
-        "--trigger-capture",
-        action="store_true",
-        help="Trigger capture on start or via message",
-    )
-
-    parser.add_argument(
-        "--wait-event-and-download",
-        type=str,
-        help="Wait for a camera event and download the file when ready",
-        dest="event_file",
-    )
-
-    parser.add_argument(
-        "--filename",
-        type=str,
-        help="Filename template for the captured image (use %s if required)",
-        dest="filename",
-    )
-
-    """
-    END NEW CODE
-    """
-
     parser.add_argument(
         "--chromaBlend",
         type=float,
@@ -786,34 +731,6 @@ def main():
         return CameraControl.update_config(vars(args))
     else:
         cam = CameraControl(args)
-
-        # NEW CODE
-        if args.trigger_capture:
-            if args.event_file:
-                # Polling bis Event eintritt
-                log.info("Waiting for event: %s" % args.event_file)
-                while True:
-                    events = cam.camera.wait_for_event(1000)  # Zeit in ms
-                    for e in events:
-                        if hasattr(e, "name") and e.name == args.event_file:
-                            file_path = e.folder + "/" + e.name
-                            target_filename = (
-                                args.filename % e.name if args.filename else e.name
-                            )
-                            cam.capture_image(target_filename)
-                            log.info("Captured event file saved as %s" % target_filename)
-                            break
-                    else:
-                        continue
-                    break
-            else:
-                # Sofortige Aufnahme
-                target_filename = args.filename or "capture.jpg"
-                cam.capture_image(target_filename)
-                log.info("Captured image saved as %s" % target_filename)
-
-        # END NEW CODE
-
         signal.signal(signal.SIGINT, cam.exit_gracefully)
         signal.signal(signal.SIGTERM, cam.exit_gracefully)
 
