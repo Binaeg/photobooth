@@ -43,15 +43,45 @@ const photoboothSetup = (function () {
         $('#setupMessage').removeClass('success error loading').html('');
     };
 
+    // Start countdown
+    api.startCountdown = function (callback) {
+        const $countdown = $('#setupCountdown');
+        const $number = $('.setup-modal__countdown-number');
+        const $button = $('#setupAutofocusBtn');
+        
+        // Hide button and message, show countdown
+        $button.hide();
+        api.clearMessage();
+        $countdown.fadeIn(300);
+        
+        let count = 5;
+        $number.text(count);
+        
+        const interval = setInterval(function () {
+            count--;
+            if (count > 0) {
+                $number.text(count);
+            } else {
+                clearInterval(interval);
+                $countdown.fadeOut(300);
+                callback();
+            }
+        }, 1000);
+    };
+
     // Trigger autofocus capture
     api.triggerAutofocus = function () {
         const $button = $('#setupAutofocusBtn');
         const originalButtonText = $button.html();
         
-        // Disable button and show loading state
+        // Disable button
         $button.prop('disabled', true);
-        $button.html('<span class="setup-modal__spinner"></span> Fokussiere Kamera...');
-        api.showMessage('Bitte warten, Kamera wird fokussiert...', 'loading');
+        
+        // Start countdown, then capture
+        api.startCountdown(function () {
+            // Show loading state
+            $button.html('<span class="setup-modal__spinner"></span> Fokussiere Kamera...').show();
+            api.showMessage('Bitte warten, Kamera wird fokussiert...', 'loading');
 
         // Create temporary filename for autofocus test
         const timestamp = Date.now();
@@ -86,16 +116,15 @@ const photoboothSetup = (function () {
                     }, 2000);
                 } else {
                     api.showMessage('Fehler beim Fokussieren. Bitte erneut versuchen. Wenn der Fehler weiterhin auftritt, versuche den fotografierten Bereich besser auszuleuchten. Das Licht kann später dunkler sein.', 'error');
-                    $button.prop('disabled', false);
-                    $button.html(originalButtonText);
+                    $button.prop('disabled', false).html(originalButtonText).show();
                 }
             })
             .fail(function (xhr, status, error) {
                 console.error('Autofocus capture failed:', error);
                 api.showMessage('Fehler: Verbindung zur Kamera fehlgeschlagen.', 'error');
-                $button.prop('disabled', false);
-                $button.html(originalButtonText);
+                $button.prop('disabled', false).html(originalButtonText).show();
             });
+        });
     };
 
     // Delete setup test image
