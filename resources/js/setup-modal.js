@@ -64,7 +64,7 @@ const photoboothSetup = (function () {
             data: {
                 style: 'photo',
                 filename: filename,
-                // Add any autofocus-specific parameters here
+                autofocus: true,  // Enable autofocus for setup
                 setup: true
             },
             timeout: 30000 // 30 seconds timeout

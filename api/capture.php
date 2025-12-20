@@ -91,6 +91,10 @@ try {
         } else {
             $captureHandler->captureCmd = $config['commands']['take_picture'];
         }
+        // Add --af parameter if autofocus is enabled
+        if (!empty($_POST['autofocus']) && $_POST['autofocus'] == true) {
+            $captureHandler->captureCmd .= ' --af';
+        }
         $captureHandler->captureWithCmd();
     }
     // send image to frontend
