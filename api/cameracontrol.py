@@ -160,6 +160,7 @@ class CameraControl:
             # be sure the output mode is not set to PC
             # otherwise the flash is not triggered
             self.set_config("output", "Off")
+            self.set_config("eosremoterelease", "Immediate")
         except UnsupportedConfigException as e:
             log.error(e)
 
