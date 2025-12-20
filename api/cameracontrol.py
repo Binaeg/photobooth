@@ -160,20 +160,57 @@ class CameraControl:
             # be sure the output mode is not set to PC
             # otherwise the flash is not triggered
             self.set_config("output", "Off")
+            #  new
             self.set_config("eosremoterelease", "Immediate")
+            # end new
         except UnsupportedConfigException as e:
             log.error(e)
 
         log.info("Capturing image")
-        file_path = self.camera.capture(gp.GP_CAPTURE_IMAGE)
-        self.camera.wait_for_event(1000)
+
+        #new
+
+        # Simuliert --wait-event-and-download=5s
+        timeout = time.time() + 5 
+        file_path = None
+        
+        while time.time() < timeout:
+            event_type, event_data = self.camera.wait_for_event(100) # 100ms wait
+            if event_type == gp.GP_EVENT_FILE_ADDED:
+                file_path = event_data
+                break
+        
+        if not file_path:
+            # Fallback falls kein Event gefangen wurde
+            file_path = self.camera.capture(gp.GP_CAPTURE_IMAGE)
+
         log.info("Camera file path: {0}/{1}".format(file_path.folder, file_path.name))
         file_jpg = str(file_path.name).replace(".CR2", ".JPG")
+        
         log.info("Copying image to %s" % path)
         camera_file = self.camera.file_get(
             file_path.folder, file_jpg, gp.GP_FILE_TYPE_NORMAL
         )
         camera_file.save(path)
+        
+        # Reset des Remote Release nach der Aufnahme
+        try:
+            self.set_config("eosremoterelease", "None")
+        except:
+            pass
+
+        # end new
+
+        # OLD 
+        # file_path = self.camera.capture(gp.GP_CAPTURE_IMAGE)
+        # self.camera.wait_for_event(1000)
+        # log.info("Camera file path: {0}/{1}".format(file_path.folder, file_path.name))
+        # file_jpg = str(file_path.name).replace(".CR2", ".JPG")
+        # log.info("Copying image to %s" % path)
+        # camera_file = self.camera.file_get(
+        #     file_path.folder, file_jpg, gp.GP_FILE_TYPE_NORMAL
+        # )
+        # camera_file.save(path)
 
     def print_config(self, name: str):
         """
