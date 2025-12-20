@@ -1,0 +1,170 @@
+/* Setup Modal Styles */
+.setup-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.setup-modal.active {
+    display: flex;
+}
+
+.setup-modal__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    z-index: 1;
+}
+
+.setup-modal__content {
+    position: relative;
+    z-index: 2;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    max-width: 600px;
+    width: 90%;
+    padding: 40px;
+    text-align: center;
+    animation: modalFadeIn 0.4s ease-out;
+    color: white;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.setup-modal__header h2 {
+    font-size: 2rem;
+    margin: 0 0 20px 0;
+    font-weight: 700;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.setup-modal__body {
+    margin-bottom: 30px;
+}
+
+.setup-modal__body p {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 0 0 20px 0;
+    opacity: 0.95;
+}
+
+.setup-modal__message {
+    min-height: 30px;
+    font-size: 1rem;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.setup-modal__message.success {
+    background-color: rgba(76, 175, 80, 0.3);
+    border: 1px solid rgba(76, 175, 80, 0.6);
+}
+
+.setup-modal__message.error {
+    background-color: rgba(244, 67, 54, 0.3);
+    border: 1px solid rgba(244, 67, 54, 0.6);
+}
+
+.setup-modal__message.loading {
+    background-color: rgba(255, 193, 7, 0.3);
+    border: 1px solid rgba(255, 193, 7, 0.6);
+}
+
+.setup-modal__footer {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+.setup-modal__button {
+    background: white;
+    color: #667eea;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.setup-modal__button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    background: #f8f9fa;
+}
+
+.setup-modal__button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.setup-modal__button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.setup-modal__button i {
+    font-size: 1.2rem;
+}
+
+/* Spinner Animation */
+.setup-modal__spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .setup-modal__content {
+        padding: 30px 20px;
+        width: 95%;
+    }
+
+    .setup-modal__header h2 {
+        font-size: 1.5rem;
+    }
+
+    .setup-modal__body p {
+        font-size: 1rem;
+    }
+
+    .setup-modal__button {
+        padding: 12px 30px;
+        font-size: 1rem;
+    }
+}

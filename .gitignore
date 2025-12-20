@@ -10,9 +10,7 @@ manual/faq.*
 node_modules/
 private/*
 !private/README.md
-resources/css/*
 !resources/css/README.md
-resources/js/*
 !resources/js/README.md
 resources/revisions.json
 stats
