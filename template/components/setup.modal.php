@@ -1,5 +1,5 @@
 <!-- Setup Modal -->
-<div id="setupModal" class="setup-modal" style="display: none;">
+<div id="setupModal" class="setup-modal">
     <div class="setup-modal__overlay"></div>
     <div class="setup-modal__content">
         <div class="setup-modal__header">
