@@ -355,6 +355,80 @@ const photoboothTools = (function () {
     };
 
     api.printImage = function (imageSrc, copies, cb) {
+        const handlePrintResponse = function (data) {
+            api.console.log('Picture processed: ', data);
+
+            if (data.status == 'locking') {
+                api.overlay.showWarning(config.print.locking_msg + ' (' + api.getTranslation('printed') + ' ' + data.count + ')');
+                api.resetPrintErrorMessage(cb, config.print.time);
+                $('.print-unlock-button').removeClass('hidden');
+                return;
+            }
+
+            if (data.status == 'queued') {
+                api.overlay.showWarning(api.getTranslation('print_queued'));
+                api.resetPrintErrorMessage(cb, 2000);
+                return;
+            }
+
+            if (data.status == 'error') {
+                if (data.error) {
+                    api.console.log('ERROR: An error occurred: ', data.error);
+                } else {
+                    api.console.log('ERROR: An error occurred on print.');
+                }
+                api.resetPrintErrorMessage(cb, config.print.time);
+                return;
+            }
+
+            setTimeout(function () {
+                api.overlay.close();
+                cb();
+                api.isPrinting = false;
+            }, config.print.time);
+        };
+
+        const extractPrintResponse = function (jqXHR) {
+            if (!jqXHR) {
+                return null;
+            }
+
+            if (jqXHR.responseJSON && jqXHR.responseJSON.status) {
+                return jqXHR.responseJSON;
+            }
+
+            if (typeof jqXHR.responseText !== 'string' || jqXHR.responseText.length === 0) {
+                return null;
+            }
+
+            try {
+                const parsed = JSON.parse(jqXHR.responseText);
+                if (parsed && parsed.status) {
+                    return parsed;
+                }
+            } catch (ignored) {
+                // Continue with relaxed extraction below.
+            }
+
+            const matches = jqXHR.responseText.match(/\{[\s\S]*?\}/g);
+            if (!matches) {
+                return null;
+            }
+
+            for (let i = matches.length - 1; i >= 0; i--) {
+                try {
+                    const candidate = JSON.parse(matches[i]);
+                    if (candidate && candidate.status) {
+                        return candidate;
+                    }
+                } catch (ignored) {
+                    // Try next candidate.
+                }
+            }
+
+            return null;
+        };
+
         if (api.isVideoFile(imageSrc)) {
             api.console.log('ERROR: An error occurred: attempt to print non printable file.');
             api.overlay.showError(api.getTranslation('no_printing'));
@@ -376,61 +450,18 @@ const photoboothTools = (function () {
                     copies: copies
                 },
                 success: (data) => {
-                    api.console.log('Picture processed: ', data);
-
-                    if (data.status == 'locking') {
-                        api.overlay.showWarning(
-                            config.print.locking_msg + ' (' + api.getTranslation('printed') + ' ' + data.count + ')'
-                        );
-                        api.resetPrintErrorMessage(cb, config.print.time);
-                        $('.print-unlock-button').removeClass('hidden');
-                    } else if (data.status == 'queued') {
-                        api.overlay.showWarning(api.getTranslation('print_queued'));
-                        api.resetPrintErrorMessage(cb, 2000);
-                    } else if (data.status == 'error') {
-                        if (data.error) {
-                            api.console.log('ERROR: An error occurred: ', data.error);
-                            api.overlay.showError(data.error);
-                        } else {
-                            api.console.log('ERROR: An error occurred on print.');
-                            api.overlay.showError(api.getTranslation('error'));
-                        }
-                        api.resetPrintErrorMessage(cb, config.print.time);
-                    } else {
-                        setTimeout(function () {
-                            api.overlay.close();
-                            cb();
-                            api.isPrinting = false;
-                        }, config.print.time);
-                    }
+                    handlePrintResponse(data);
                 },
                 error: (jqXHR, textStatus) => {
-                    // Recover from parser errors when the backend still returned a valid JSON payload.
-                    if (textStatus === 'parsererror' && jqXHR && typeof jqXHR.responseText === 'string') {
-                        try {
-                            const jsonStart = jqXHR.responseText.indexOf('{');
-                            const jsonEnd = jqXHR.responseText.lastIndexOf('}');
+                    const recoveredResponse = extractPrintResponse(jqXHR);
 
-                            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-                                const response = JSON.parse(jqXHR.responseText.slice(jsonStart, jsonEnd + 1));
-
-                                if (response.status && response.status !== 'error') {
-                                    api.console.log('Print finished despite parser error: ', response);
-                                    setTimeout(function () {
-                                        api.overlay.close();
-                                        cb();
-                                        api.isPrinting = false;
-                                    }, config.print.time);
-                                    return;
-                                }
-                            }
-                        } catch (error) {
-                            api.console.log('ERROR: Could not recover print parser error: ', error);
-                        }
+                    if (recoveredResponse && recoveredResponse.status && recoveredResponse.status !== 'error') {
+                        api.console.log('Print finished despite transport/parse error: ', recoveredResponse);
+                        handlePrintResponse(recoveredResponse);
+                        return;
                     }
 
                     api.console.log('ERROR: Print failed: ', textStatus);
-                    api.overlay.showError(api.getTranslation('error'));
                     api.resetPrintErrorMessage(cb, notificationTimeout);
                 }
             });
