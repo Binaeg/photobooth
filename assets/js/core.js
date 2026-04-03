@@ -38,6 +38,8 @@ const photoBooth = (function () {
         loader = $('.stage[data-stage="loader"]'),
         loaderButtonBar = loader.find('.buttonbar'),
         loaderMessage = loader.find('.stage-message'),
+        spinnerIconClass =
+            (config.icons.spinner || '').replace(/\bfa-cog\b/g, 'fa-spinner').trim() || 'fa fa-spinner fa-spin',
         loaderImage = loader.find('.stage-image'),
         resultPage = $('.stage[data-stage="result"]'),
         previewIpcam = $('#preview--ipcam'),
@@ -62,6 +64,14 @@ const photoBooth = (function () {
         continuousCollageTime = config.collage.continuous_time * 1000,
         retryTimeout = config.picture.retry_timeout * 1000,
         notificationTimeout = config.ui.notification_timeout * 1000;
+
+    const isInvalidImagePath = (value) => {
+        const normalized = String(value ?? '')
+            .trim()
+            .toLowerCase();
+
+        return normalized === '' || normalized === 'null' || normalized === 'undefined' || normalized === '/null';
+    };
 
     let timeOut,
         chromaFile = '',
@@ -257,34 +267,40 @@ const photoBooth = (function () {
                 const element = document.createElement('div');
                 element.classList.add('cheese');
 
-                if (config.ui.shutter_cheese_img != null && config.ui.shutter_cheese_img !== '') {
+                const appendCheeseLabel = () => {
+                    const labelElement = document.createElement('div');
+                    labelElement.classList.add('cheese-label');
+                    if (api.photoStyle === PhotoStyle.VIDEO) {
+                        labelElement.textContent = config.video.cheese;
+                    } else if (api.photoStyle === PhotoStyle.COLLAGE) {
+                        labelElement.innerHTML =
+                            photoboothTools.getTranslation('cheese') +
+                            '<br>' +
+                            (api.nextCollageNumber + 1) +
+                            ' / ' +
+                            config.collage.limit;
+                        labelElement.style.textAlign = 'center';
+                    } else {
+                        labelElement.textContent = photoboothTools.getTranslation('cheese');
+                    }
+                    element.appendChild(labelElement);
+                };
+
+                if (!isInvalidImagePath(config.ui.shutter_cheese_img)) {
                     const image = document.createElement('img');
                     image.src = config.ui.shutter_cheese_img;
                     const imageElement = document.createElement('div');
                     imageElement.classList.add('cheese-image');
+                    image.addEventListener('error', () => {
+                        imageElement.remove();
+                        if (!element.querySelector('.cheese-label')) {
+                            appendCheeseLabel();
+                        }
+                    });
                     imageElement.appendChild(image);
                     element.appendChild(imageElement);
-                } else if (api.photoStyle === PhotoStyle.VIDEO) {
-                    const labelElement = document.createElement('div');
-                    labelElement.classList.add('cheese-label');
-                    labelElement.textContent = config.video.cheese;
-                    element.appendChild(labelElement);
-                } else if (api.photoStyle === PhotoStyle.COLLAGE) {
-                    const labelElement = document.createElement('div');
-                    labelElement.classList.add('cheese-label');
-                    labelElement.innerHTML =
-                        photoboothTools.getTranslation('cheese') +
-                        '<br>' +
-                        (api.nextCollageNumber + 1) +
-                        ' / ' +
-                        config.collage.limit;
-                    labelElement.style.textAlign = 'center';
-                    element.appendChild(labelElement);
                 } else {
-                    const labelElement = document.createElement('div');
-                    labelElement.classList.add('cheese-label');
-                    labelElement.textContent = photoboothTools.getTranslation('cheese');
-                    element.appendChild(labelElement);
+                    appendCheeseLabel();
                 }
 
                 document.body.append(element);
@@ -852,7 +868,7 @@ const photoBooth = (function () {
         startTime = new Date().getTime();
         loaderMessage.html(
             '<i class="' +
-                config.icons.spinner +
+                spinnerIconClass +
                 '"></i><br>' +
                 (api.photoStyle === PhotoStyle.COLLAGE
                     ? photoboothTools.getTranslation('busyCollage')
@@ -916,7 +932,7 @@ const photoBooth = (function () {
         videoBackground.hide();
         loader.css('--stage-background', 'var(--background-countdown-color)');
         loaderMessage.html(
-            '<i class="' + config.icons.spinner + '"></i><br>' + photoboothTools.getTranslation('busyVideo')
+            '<i class="' + spinnerIconClass + '"></i><br>' + photoboothTools.getTranslation('busyVideo')
         );
 
         $.ajax({

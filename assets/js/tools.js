@@ -109,8 +109,10 @@ const photoboothTools = (function () {
             api.overlay.element.dataset.type = type;
         },
         showWaiting: (message) => {
+            const spinnerIconClass =
+                (config.icons.spinner || '').replace(/\bfa-cog\b/g, 'fa-spinner').trim() || 'fa fa-spinner fa-spin';
             api.overlay.show(
-                '<div><i class="' + config.icons.spinner + '"></i></div><div>' + message + '</div>',
+                '<div><i class="' + spinnerIconClass + '"></i></div><div>' + message + '</div>',
                 'progress'
             );
         },

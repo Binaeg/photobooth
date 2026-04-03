@@ -538,7 +538,7 @@ class PhotoboothConfiguration implements ConfigurationInterface
                 ->scalarNode('zoom')->defaultValue('fa fa-search-plus')->end()
                 ->scalarNode('logout')->defaultValue('fa fa-right-from-bracket')->end()
                 ->scalarNode('date')->defaultValue('fa fa-clock')->end()
-                ->scalarNode('spinner')->defaultValue('fa fa-cog fa-spin')->end()
+                ->scalarNode('spinner')->defaultValue('fa fa-spinner fa-spin')->end()
                 ->scalarNode('update_git')->defaultValue('fa fa-play-circle')->end()
                 ->scalarNode('password_visibility')->defaultValue('fa fa-eye')->end()
                 ->scalarNode('password_toggle')->defaultValue('fa-eye fa-eye-slash')->end()
