@@ -38,6 +38,8 @@ const photoBooth = (function () {
         loader = $('.stage[data-stage="loader"]'),
         loaderButtonBar = loader.find('.buttonbar'),
         loaderMessage = loader.find('.stage-message'),
+        spinnerIconClass =
+            (config.icons.spinner || '').replace(/\bfa-cog\b/g, 'fa-spinner').trim() || 'fa fa-spinner fa-spin',
         loaderImage = loader.find('.stage-image'),
         resultPage = $('.stage[data-stage="result"]'),
         previewIpcam = $('#preview--ipcam'),
@@ -852,7 +854,7 @@ const photoBooth = (function () {
         startTime = new Date().getTime();
         loaderMessage.html(
             '<i class="' +
-                config.icons.spinner +
+                spinnerIconClass +
                 '"></i><br>' +
                 (api.photoStyle === PhotoStyle.COLLAGE
                     ? photoboothTools.getTranslation('busyCollage')
@@ -916,7 +918,7 @@ const photoBooth = (function () {
         videoBackground.hide();
         loader.css('--stage-background', 'var(--background-countdown-color)');
         loaderMessage.html(
-            '<i class="' + config.icons.spinner + '"></i><br>' + photoboothTools.getTranslation('busyVideo')
+            '<i class="' + spinnerIconClass + '"></i><br>' + photoboothTools.getTranslation('busyVideo')
         );
 
         $.ajax({
