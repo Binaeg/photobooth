@@ -370,6 +370,7 @@ const photoboothTools = (function () {
             $.ajax({
                 method: 'GET',
                 url: environment.publicFolders.api + '/print.php',
+                dataType: 'json',
                 data: {
                     filename: imageSrc,
                     copies: copies
@@ -404,6 +405,30 @@ const photoboothTools = (function () {
                     }
                 },
                 error: (jqXHR, textStatus) => {
+                    // Recover from parser errors when the backend still returned a valid JSON payload.
+                    if (textStatus === 'parsererror' && jqXHR && typeof jqXHR.responseText === 'string') {
+                        try {
+                            const jsonStart = jqXHR.responseText.indexOf('{');
+                            const jsonEnd = jqXHR.responseText.lastIndexOf('}');
+
+                            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+                                const response = JSON.parse(jqXHR.responseText.slice(jsonStart, jsonEnd + 1));
+
+                                if (response.status && response.status !== 'error') {
+                                    api.console.log('Print finished despite parser error: ', response);
+                                    setTimeout(function () {
+                                        api.overlay.close();
+                                        cb();
+                                        api.isPrinting = false;
+                                    }, config.print.time);
+                                    return;
+                                }
+                            }
+                        } catch (error) {
+                            api.console.log('ERROR: Could not recover print parser error: ', error);
+                        }
+                    }
+
                     api.console.log('ERROR: Print failed: ', textStatus);
                     api.overlay.showError(api.getTranslation('error'));
                     api.resetPrintErrorMessage(cb, notificationTimeout);
