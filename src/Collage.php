@@ -350,6 +350,8 @@ class Collage
         }
         self::reset();
         $imageHandler = new Image();
+        $v2TextLayers = [];
+        $isV2LayoutFromJson = false;
         $imageHandler->jpegQuality = 100;
         $editImages = [];
         $collageConfigFilePath = PathUtility::getAbsolutePath('private/' . $c->collageLayout);
@@ -358,7 +360,103 @@ class Collage
             $collageJson = json_decode((string)file_get_contents($collageConfigFilePath), true);
 
             if (is_array($collageJson)) {
-                if (isset($collageJson['layout']) && !empty($collageJson['layout'])) {
+                if (isset($collageJson['schemaVersion']) && (int) $collageJson['schemaVersion'] === 2) {
+                    $isV2LayoutFromJson = true;
+                    $width = isset($collageJson['width']) ? (int) $collageJson['width'] : 0;
+                    $height = isset($collageJson['height']) ? (int) $collageJson['height'] : 0;
+                    if ($width > 0 && $height > 0) {
+                        self::$collageWidth = $width;
+                        self::$collageHeight = $height;
+                    }
+
+                    $backgroundConfig = isset($collageJson['background']) && is_array($collageJson['background'])
+                        ? $collageJson['background']
+                        : [];
+                    if (isset($backgroundConfig['color']) && is_string($backgroundConfig['color']) && $backgroundConfig['color'] !== '') {
+                        $c->collageBackgroundColor = $backgroundConfig['color'];
+                    }
+                    if (isset($backgroundConfig['image']) && is_string($backgroundConfig['image']) && $backgroundConfig['image'] !== '') {
+                        $c->collageBackground = $backgroundConfig['image'];
+                    }
+
+                    $frameConfig = isset($collageJson['frame']) && is_array($collageJson['frame'])
+                        ? $collageJson['frame']
+                        : [];
+                    if (isset($frameConfig['path']) && is_string($frameConfig['path'])) {
+                        $c->collageFrame = $frameConfig['path'];
+                    }
+                    if (
+                        isset($frameConfig['mode'])
+                        && is_string($frameConfig['mode'])
+                        && in_array($frameConfig['mode'], ['off', 'once', 'always'], true)
+                    ) {
+                        $c->collageTakeFrame = $frameConfig['mode'];
+                    }
+
+                    $objects = isset($collageJson['objects']) && is_array($collageJson['objects'])
+                        ? $collageJson['objects']
+                        : [];
+
+                    $placeholderObjects = array_values(array_filter($objects, static function ($object): bool {
+                        return is_array($object)
+                            && isset($object['type'])
+                            && $object['type'] === 'placeholder';
+                    }));
+
+                    usort($placeholderObjects, static function (array $left, array $right): int {
+                        $leftIndex = isset($left['placeholderIndex']) ? (int) $left['placeholderIndex'] : 0;
+                        $rightIndex = isset($right['placeholderIndex']) ? (int) $right['placeholderIndex'] : 0;
+                        if ($leftIndex === $rightIndex) {
+                            $leftZ = isset($left['zIndex']) ? (int) $left['zIndex'] : 0;
+                            $rightZ = isset($right['zIndex']) ? (int) $right['zIndex'] : 0;
+                            return $leftZ <=> $rightZ;
+                        }
+                        return $leftIndex <=> $rightIndex;
+                    });
+
+                    if (empty($placeholderObjects)) {
+                        throw new \Exception('Invalid v2 collage document: no placeholder objects found.');
+                    }
+
+                    $layoutConfigArray = [];
+                    foreach ($placeholderObjects as $placeholderObject) {
+                        $layoutConfigArray[] = [
+                            isset($placeholderObject['x']) ? (int) round((float) $placeholderObject['x']) : 0,
+                            isset($placeholderObject['y']) ? (int) round((float) $placeholderObject['y']) : 0,
+                            isset($placeholderObject['width']) ? (int) round((float) $placeholderObject['width']) : 0,
+                            isset($placeholderObject['height']) ? (int) round((float) $placeholderObject['height']) : 0,
+                            isset($placeholderObject['rotation']) ? (int) round((float) $placeholderObject['rotation']) : 0,
+                            isset($placeholderObject['frameEnabled']) ? (bool) $placeholderObject['frameEnabled'] : false,
+                        ];
+                    }
+
+                    $textObjects = array_values(array_filter($objects, static function ($object): bool {
+                        return is_array($object)
+                            && isset($object['type'])
+                            && $object['type'] === 'text';
+                    }));
+                    usort($textObjects, static function (array $left, array $right): int {
+                        $leftZ = isset($left['zIndex']) ? (int) $left['zIndex'] : 0;
+                        $rightZ = isset($right['zIndex']) ? (int) $right['zIndex'] : 0;
+                        return $leftZ <=> $rightZ;
+                    });
+
+                    foreach ($textObjects as $textObject) {
+                        $v2TextLayers[] = [
+                            'text' => isset($textObject['text']) && is_string($textObject['text']) ? $textObject['text'] : '',
+                            'x' => isset($textObject['x']) ? (int) round((float) $textObject['x']) : 0,
+                            'y' => isset($textObject['y']) ? (int) round((float) $textObject['y']) : 0,
+                            'rotation' => isset($textObject['rotation']) ? (int) round((float) $textObject['rotation']) : 0,
+                            'fontPath' => isset($textObject['fontPath']) && is_string($textObject['fontPath']) ? $textObject['fontPath'] : $c->textOnCollageFont,
+                            'fontSize' => isset($textObject['fontSize']) ? (int) round((float) $textObject['fontSize']) : $c->textOnCollageFontSize,
+                            'fontColor' => isset($textObject['color']) && is_string($textObject['color']) ? $textObject['color'] : $c->textOnCollageFontColor,
+                        ];
+                    }
+
+                    $c->collageLimit = count($layoutConfigArray);
+                    $c->collagePlaceholder = false;
+                    $c->textOnCollageEnabled = !empty($v2TextLayers) ? 'enabled' : 'disabled';
+                } elseif (isset($collageJson['layout']) && !empty($collageJson['layout'])) {
                     $layoutConfigArray = $collageJson['layout'];
 
                     if (isset($collageJson['background_color']) && !empty($collageJson['background_color'])) {
@@ -563,7 +661,7 @@ class Collage
                 $singlePictureOptions = [];
                 for ($j = 0; $j < count($layoutConfig); $j++) {
                     $processed = $layoutConfig[$j];
-                    if ($j !== 5) {
+                    if ($j !== 5 && !$isV2LayoutFromJson) {
                         $value = str_replace(['x', 'y'], [self::$collageWidth, self::$collageHeight], $layoutConfig[$j]);
                         $processed = Helper::doMath($value);
                     }
@@ -616,19 +714,26 @@ class Collage
         }
 
         if ($c->textOnCollageEnabled === 'enabled') {
-            $imageHandler->fontSize = $c->textOnCollageFontSize;
-            $imageHandler->fontRotation = $c->textOnCollageRotation;
-            $imageHandler->fontLocationX = $c->textOnCollageLocationX;
-            $imageHandler->fontLocationY = $c->textOnCollageLocationY;
-            $imageHandler->fontColor = $c->textOnCollageFontColor;
-            $imageHandler->fontPath = $c->textOnCollageFont;
-            $imageHandler->textLine1 = $c->textOnCollageLine1;
-            $imageHandler->textLine2 = $c->textOnCollageLine2;
-            $imageHandler->textLine3 = $c->textOnCollageLine3;
-            $imageHandler->textLineSpacing = $c->textOnCollageLinespace;
-            $my_collage = $imageHandler->applyText($my_collage);
-            if (!$my_collage instanceof \GdImage) {
-                throw new \Exception('Failed to apply text to collage resource.');
+            if (!empty($v2TextLayers)) {
+                $my_collage = $imageHandler->applyTextLayers($my_collage, $v2TextLayers);
+                if (!$my_collage instanceof \GdImage) {
+                    throw new \Exception('Failed to apply v2 text layers to collage resource.');
+                }
+            } else {
+                $imageHandler->fontSize = $c->textOnCollageFontSize;
+                $imageHandler->fontRotation = $c->textOnCollageRotation;
+                $imageHandler->fontLocationX = $c->textOnCollageLocationX;
+                $imageHandler->fontLocationY = $c->textOnCollageLocationY;
+                $imageHandler->fontColor = $c->textOnCollageFontColor;
+                $imageHandler->fontPath = $c->textOnCollageFont;
+                $imageHandler->textLine1 = $c->textOnCollageLine1;
+                $imageHandler->textLine2 = $c->textOnCollageLine2;
+                $imageHandler->textLine3 = $c->textOnCollageLine3;
+                $imageHandler->textLineSpacing = $c->textOnCollageLinespace;
+                $my_collage = $imageHandler->applyText($my_collage);
+                if (!$my_collage instanceof \GdImage) {
+                    throw new \Exception('Failed to apply text to collage resource.');
+                }
             }
         }
 

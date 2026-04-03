@@ -788,7 +788,7 @@ class Image
                 if ($font === false) {
                     throw new \Exception('Failed to download font from: ' . $this->fontPath);
                 }
-                file_put_contents($tempFontPath, $this->fontPath);
+                file_put_contents($tempFontPath, $font);
                 $fontPath = $tempFontPath;
                 $isTempFont = true;
             } else {
@@ -837,6 +837,76 @@ class Image
             }
 
             // Return unmodified resource
+            return $sourceResource;
+        }
+    }
+
+    /**
+     * Apply multiple text objects on the source image resource.
+     *
+     * @param array<int, array<string, mixed>> $textLayers
+     */
+    public function applyTextLayers(GdImage $sourceResource, array $textLayers): GdImage
+    {
+        try {
+            foreach ($textLayers as $layer) {
+                $text = isset($layer['text']) && is_string($layer['text']) ? $layer['text'] : '';
+                if ($text === '') {
+                    continue;
+                }
+
+                $fontPathSetting = isset($layer['fontPath']) && is_string($layer['fontPath'])
+                    ? $layer['fontPath']
+                    : $this->fontPath;
+                $fontPath = PathUtility::getAbsolutePath($fontPathSetting);
+                $tempFontPath = $_SERVER['DOCUMENT_ROOT'] . '/tempfont-v2.ttf';
+                $isTempFont = false;
+
+                $fontSize = isset($layer['fontSize']) ? max((int) $layer['fontSize'], 1) : $this->fontSize;
+                $fontRotation = isset($layer['rotation']) ? (int) $layer['rotation'] : $this->fontRotation;
+                $fontLocationX = isset($layer['x']) ? (int) $layer['x'] : $this->fontLocationX;
+                $fontLocationY = isset($layer['y']) ? (int) $layer['y'] + $fontSize : $this->fontLocationY;
+                $fontColor = isset($layer['fontColor']) && is_string($layer['fontColor'])
+                    ? $layer['fontColor']
+                    : $this->fontColor;
+
+                $colorComponents = self::getColorComponents($fontColor);
+                list($r, $g, $b) = $colorComponents;
+                $color = intval(imagecolorallocate($sourceResource, $r, $g, $b));
+
+                if (PathUtility::isUrl($fontPathSetting)) {
+                    $fontFileData = @file_get_contents($fontPathSetting);
+                    if ($fontFileData === false) {
+                        throw new \Exception('Failed to download font from: ' . $fontPathSetting);
+                    }
+
+                    file_put_contents($tempFontPath, $fontFileData);
+                    $fontPath = $tempFontPath;
+                    $isTempFont = true;
+                } else {
+                    $fontPath = FontUtility::getFontPath($fontPathSetting);
+                }
+
+                if (!imagettftext($sourceResource, $fontSize, $fontRotation, $fontLocationX, $fontLocationY, $color, $fontPath, $text)) {
+                    throw new \Exception('Could not add v2 text line to resource.');
+                }
+
+                if ($isTempFont && file_exists($tempFontPath)) {
+                    if (!unlink($tempFontPath)) {
+                        $this->addErrorData('Failed to delete tmp font: ' . $tempFontPath);
+                    }
+                }
+            }
+
+            $this->imageModified = true;
+            return $sourceResource;
+        } catch (\Exception $e) {
+            $this->addErrorData($e->getMessage());
+
+            if ($this->debugLevel > 1) {
+                throw $e;
+            }
+
             return $sourceResource;
         }
     }

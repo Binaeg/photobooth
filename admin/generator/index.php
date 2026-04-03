@@ -49,12 +49,38 @@ $newConfiguration = '';
 if (isset($_POST['new-configuration'])) {
     $newConfiguration = $_POST['new-configuration'];
     $newConfig = $config;
+    $newConfigurationJson = json_decode($newConfiguration, true);
+    $isV2Configuration = is_array($newConfigurationJson)
+        && isset($newConfigurationJson['schemaVersion'])
+        && (int) $newConfigurationJson['schemaVersion'] === 2;
 
     $fp = fopen($collageConfigFilePath, 'w');
     if ($fp) {
         fwrite($fp, $newConfiguration);
         fclose($fp);
-        if ($config['collage']['layout'] === 'collage.json') {
+        if ($isV2Configuration) {
+            $objects = isset($newConfigurationJson['objects']) && is_array($newConfigurationJson['objects'])
+                ? $newConfigurationJson['objects']
+                : [];
+            $placeholderCount = count(array_filter($objects, static function ($object): bool {
+                return is_array($object)
+                    && isset($object['type'])
+                    && $object['type'] === 'placeholder';
+            }));
+
+            $newConfig['collage']['layout'] = 'collage.json';
+            $newConfig['collage']['limit'] = max(1, $placeholderCount);
+            $newConfig['collage']['placeholder'] = false;
+            $newConfig['collage']['placeholderposition'] = 1;
+            $newConfig['collage']['placeholderpath'] = '';
+            try {
+                $configurationService->update($newConfig);
+                $collageJson = $newConfigurationJson;
+                $startPreloaded = true;
+            } catch (\Exception $exception) {
+                $warning = true;
+            }
+        } elseif ($config['collage']['layout'] === 'collage.json') {
             $collageJson = json_decode($newConfiguration);
             $startPreloaded = true;
             $arrayCollageJson = (array) $collageJson;
@@ -291,6 +317,24 @@ $font_styles .= '</style>';
             'attributes' => ['data-trigger' => 'general']
         ],
         'collage:collage_background'
+    )
+?>
+                            </div>
+                            <div class="col-span-2 flex flex-col">
+                                <?=
+    AdminInput::renderSelect(
+        [
+            'type' => 'select',
+            'name' => 'v2_background_fit',
+            'options' => [
+                'cover' => 'Cover',
+                'contain' => 'Contain',
+                'stretch' => 'Stretch',
+            ],
+            'value' => 'cover',
+            'attributes' => ['data-trigger' => 'general']
+        ],
+        'collage:generator:show_background'
     )
 ?>
                             </div>
@@ -597,7 +641,7 @@ AdminInput::renderColor(
                     </div>
                 </div>
                 <hr>
-                <div class="images_settings flex flex-col gap-4">
+                <div class="images_settings hidden flex-col gap-4">
                     <div id="layout_containers" class="flex gap-4 overflow-x-auto">
                         <?php for ($i = 0; $i < count($demoImages); $i++) {
                             $hidden_class = 'hidden';
@@ -706,29 +750,20 @@ AdminInput::renderColor(
                 </div>
             </div>
             <div class="result_images md:max-h-[75vh] flex-1 relative lg:flex-[3_1_0%] p-4 md:p-8 bg-slate-300">
-                <div id="result_canvas" class="relative m-0 left-[50%] top-[50%] right-0 bottom-0 translate-y-[0%] md:translate-y-[-50%] translate-x-[-50%] max-w-full max-h-full shadow-xl">
-                    <div id="collage_background" class="absolute h-full">
-                        <img class="h-full hidden object-contain object-top" src="" alt="Choose the background">
+                <div id="collage_v2_editor" class="w-full h-full flex flex-col gap-3">
+                    <input id="generator_mode_v2" type="hidden" value="1" />
+                    <div class="flex flex-wrap gap-2 justify-center md:justify-start">
+                        <button id="v2_add_placeholder" type="button" class="px-3 py-2 rounded bg-blue-200 text-blue-900 font-semibold">Add Placeholder</button>
+                        <button id="v2_add_text" type="button" class="px-3 py-2 rounded bg-orange-200 text-orange-900 font-semibold">Add Text</button>
+                        <button id="v2_delete_selected" type="button" class="px-3 py-2 rounded bg-rose-200 text-rose-900 font-semibold">Delete Selected</button>
+                        <button id="v2_undo" type="button" class="px-3 py-2 rounded bg-slate-200 text-slate-900 font-semibold" disabled>Undo</button>
+                        <button id="v2_redo" type="button" class="px-3 py-2 rounded bg-slate-200 text-slate-900 font-semibold" disabled>Redo</button>
                     </div>
-                    <?php
-for ($i = 0; $i < count($demoImages); $i++) {
-    $imagePath = PathUtility::getPublicPath($demoImages[$i]);
-    $hiddenClass = $i == 0 ? '' : 'hidden';
-    echo "<div id='picture-$i' class='absolute overflow-hidden w-full h-full $hiddenClass'>
-            <img class='absolute object-left-top rotate-0 max-w-none' data-src='$imagePath'>
-            <img class='picture-frame absolute object-left-top rotate-0 max-w-none hidden' />
-          </div>";
-}
-?>
-                    <div id="collage_frame" class="absolute h-full w-full">
-                        <img class="h-full w-full hidden" src="" alt="Choose the frame">
+                    <div class="text-xs text-slate-700">
+                        Drag objects to move. Use corner handles to resize and rotate. Double-click text to edit.
                     </div>
-                    <div id="collage_text" class="absolute h-full font-selected">
-                        <div class='relative'>
-                            <div class='absolute whitespace-nowrap origin-top-left text-line-1 leading-none'></div>
-                            <div class='absolute whitespace-nowrap origin-top-left text-line-2 leading-none'></div>
-                            <div class='absolute whitespace-nowrap origin-top-left text-line-3 leading-none'></div>
-                        </div>
+                    <div class="w-full h-full overflow-auto border-2 border-slate-400 rounded bg-white p-2">
+                        <canvas id="collage_v2_canvas" class="shadow-xl"></canvas>
                     </div>
                 </div>
             </div>
@@ -760,7 +795,8 @@ if (isset($_SESSION['auth']) && $_SESSION['auth'] === true) {
 $assetService = AssetService::getInstance();
 
 include PathUtility::getAbsolutePath('admin/components/footer.scripts.php');
-echo '<script src="' . $assetService->getUrl('resources/js/admin/generator.js') . '"></script>';
+echo '<script src="' . $assetService->getUrl('node_modules/fabric/dist/index.min.js') . '"></script>';
+echo '<script src="' . $assetService->getUrl('assets/js/admin/generator-v2.js') . '"></script>';
 
 if ($success) {
     echo '<script>setTimeout(function(){openToast("' . $languageService->translate('collage:generator:configuration_saved') . '")},500);</script>';
