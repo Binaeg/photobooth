@@ -14,6 +14,23 @@ use Photobooth\Utility\PathUtility;
 
 header('Content-Type: application/json');
 
+ob_start();
+
+function sendJsonResponse($payload, $logger = null)
+{
+    $buffer = ob_get_contents();
+    if (is_string($buffer) && trim($buffer) !== '' && $logger !== null) {
+        $logger->warning('Unexpected output in print API response: ' . trim($buffer));
+    }
+
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    echo json_encode($payload);
+    exit();
+}
+
 $logger = LoggerService::getInstance()->getLogger('main');
 $logger->debug(basename($_SERVER['PHP_SELF']));
 $processor = null;
@@ -68,8 +85,7 @@ try {
     ];
 
     $logger->error($e->getMessage());
-    echo json_encode($data);
-    die();
+    sendJsonResponse($data, $logger);
 }
 
 $privatePrintApi = PathUtility::getAbsolutePath('private/api/print.php');
@@ -84,8 +100,7 @@ if (is_file($privatePrintApi)) {
             'status' => 'error',
             'error' => $e->getMessage(),
         ];
-        echo json_encode($data);
-        die();
+        sendJsonResponse($data, $logger);
     }
 }
 
@@ -199,8 +214,7 @@ if (!file_exists($vars['printFile'])) {
             'status' => 'error',
             'error' => $e->getMessage(),
         ];
-        echo json_encode($data);
-        die();
+        sendJsonResponse($data, $logger);
     }
 }
 
@@ -288,5 +302,4 @@ $data['status'] = $status;
 $data['count'] = $linecount;
 
 $logger->debug('data', $data);
-echo json_encode($data);
-exit();
+sendJsonResponse($data, $logger);
