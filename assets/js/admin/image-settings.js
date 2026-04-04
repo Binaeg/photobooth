@@ -25,6 +25,8 @@
     const bgImageInput = document.getElementById('image_settings_background_image');
     const bgFitInput = document.getElementById('image_settings_background_fit');
     const modeInput = document.getElementById('editor_mode_input');
+    const layoutActionInput = document.getElementById('editor_layout_action');
+    const canvasViewport = document.getElementById('image_settings_canvas_viewport');
     const savedLayoutsSelect = document.getElementById('image_settings_saved_layouts');
     const singleLayoutFilesInput = document.getElementById('single_layout_files_json');
     const collageLayoutFilesInput = document.getElementById('collage_layout_files_json');
@@ -161,7 +163,29 @@
         canvas.setWidth(dimensions.width);
         canvas.setHeight(dimensions.height);
         canvas.calcOffset();
+        fitCanvasToViewport();
         canvas.requestRenderAll();
+    }
+
+    function fitCanvasToViewport() {
+        if (!canvasViewport) {
+            return;
+        }
+
+        const viewportWidth = Math.max(100, canvasViewport.clientWidth - 16);
+        const viewportHeight = Math.max(100, canvasViewport.clientHeight - 16);
+        const logicalWidth = canvas.getWidth();
+        const logicalHeight = canvas.getHeight();
+        const scale = Math.min(viewportWidth / logicalWidth, viewportHeight / logicalHeight, 1);
+
+        canvas.setDimensions(
+            {
+                width: Math.floor(logicalWidth * scale),
+                height: Math.floor(logicalHeight * scale)
+            },
+            { cssOnly: true }
+        );
+        canvas.calcOffset();
     }
 
     function applyBackground() {
@@ -589,6 +613,9 @@
             return;
         }
         modeInput.value = getMode();
+        if (layoutActionInput) {
+            layoutActionInput.value = 'save';
+        }
         if (savedLayoutsSelect) {
             setSelectedLayoutFileName(savedLayoutsSelect.value);
         }
@@ -652,6 +679,78 @@
         }
 
         saveImageSettings();
+    }
+
+    function deleteSelectedLayout() {
+        if (!savedLayoutsSelect || !savedLayoutsSelect.value) {
+            return;
+        }
+
+        const really = confirm('Delete selected layout?');
+        if (!really) {
+            return;
+        }
+
+        setSelectedLayoutFileName(savedLayoutsSelect.value);
+        if (layoutActionInput) {
+            layoutActionInput.value = 'delete';
+        }
+
+        const payloadInput = document.getElementById('editor_payload_input');
+        if (payloadInput) {
+            payloadInput.value = '{}';
+        }
+        const form = document.getElementById('image_settings_form');
+        if (form) {
+            form.submit();
+        }
+    }
+
+    function openCanvasSettingsDialog() {
+        const currentWidth = getCanvasDimensions().width;
+        const currentHeight = getCanvasDimensions().height;
+        const currentBackground = getBackgroundPayload();
+
+        const nextWidth = prompt('Canvas width', String(currentWidth));
+        if (nextWidth === null) {
+            return;
+        }
+        const nextHeight = prompt('Canvas height', String(currentHeight));
+        if (nextHeight === null) {
+            return;
+        }
+        const nextColor = prompt('Background color (#RRGGBB)', currentBackground.color || '#ffffff');
+        if (nextColor === null) {
+            return;
+        }
+        const nextImage = prompt('Background image path (optional)', currentBackground.image || '');
+        if (nextImage === null) {
+            return;
+        }
+        const nextFit = prompt('Background fit: cover | contain | stretch', currentBackground.fitMode || 'cover');
+        if (nextFit === null) {
+            return;
+        }
+
+        if (widthInput) {
+            widthInput.value = String(clampNumber(nextWidth, 100, currentWidth));
+        }
+        if (heightInput) {
+            heightInput.value = String(clampNumber(nextHeight, 100, currentHeight));
+        }
+        if (bgColorInput) {
+            bgColorInput.value = nextColor.trim() || '#ffffff';
+        }
+        if (bgImageInput) {
+            bgImageInput.value = nextImage.trim();
+        }
+        if (bgFitInput) {
+            const normalizedFit = ['cover', 'contain', 'stretch'].includes(nextFit.trim()) ? nextFit.trim() : 'cover';
+            bgFitInput.value = normalizedFit;
+        }
+
+        updateCanvasDimensions();
+        applyBackground();
     }
 
     function openSelectedLayout() {
@@ -782,6 +881,18 @@
         if (saveAsButton) {
             saveAsButton.addEventListener('click', saveImageSettingsAs);
         }
+
+        const deleteLayoutButton = document.getElementById('is_delete_layout');
+        if (deleteLayoutButton) {
+            deleteLayoutButton.addEventListener('click', deleteSelectedLayout);
+        }
+
+        const canvasSettingsButton = document.getElementById('is_canvas_settings');
+        if (canvasSettingsButton) {
+            canvasSettingsButton.addEventListener('click', openCanvasSettingsDialog);
+        }
+
+        window.addEventListener('resize', fitCanvasToViewport);
 
         document.addEventListener('keydown', function (event) {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {

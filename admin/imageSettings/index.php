@@ -68,6 +68,10 @@ if (!empty($_POST['editor-mode']) && in_array($_POST['editor-mode'], ['single', 
     $currentMode = $_POST['editor-mode'];
 }
 
+$layoutAction = !empty($_POST['layout-action']) && is_string($_POST['layout-action'])
+    ? $_POST['layout-action']
+    : 'save';
+
 $selectedLayoutSingle = '';
 $selectedLayoutCollage = '';
 if (!empty($_POST['editor-layout-file-single']) && is_string($_POST['editor-layout-file-single'])) {
@@ -194,6 +198,38 @@ if (isset($_POST['new-configuration'])) {
     $success = !($error || $warning);
 }
 
+if ($layoutAction === 'delete') {
+    $mode = !empty($_POST['editor-mode']) && in_array($_POST['editor-mode'], ['single', 'collage'], true)
+        ? $_POST['editor-mode']
+        : 'single';
+    $fileToDelete = '';
+    if ($mode === 'single' && !empty($_POST['editor-layout-file-single']) && is_string($_POST['editor-layout-file-single'])) {
+        $fileToDelete = basename($_POST['editor-layout-file-single']);
+    }
+    if ($mode === 'collage' && !empty($_POST['editor-layout-file-collage']) && is_string($_POST['editor-layout-file-collage'])) {
+        $fileToDelete = basename($_POST['editor-layout-file-collage']);
+    }
+
+    if ($fileToDelete !== '') {
+        $targetBaseDir = $mode === 'collage' ? $collageLayoutsDir : $singleLayoutsDir;
+        $deletePath = $targetBaseDir . DIRECTORY_SEPARATOR . $fileToDelete;
+        if (is_file($deletePath) && is_writable($deletePath)) {
+            if (!unlink($deletePath)) {
+                $warning = true;
+            } else {
+                if ($mode === 'single') {
+                    $selectedLayoutSingle = '';
+                } else {
+                    $selectedLayoutCollage = '';
+                }
+                $success = true;
+            }
+        } else {
+            $warning = true;
+        }
+    }
+}
+
 $singleLayoutFiles = $listLayouts($singleLayoutsDir);
 $collageLayoutFiles = $listLayouts($collageLayoutsDir);
 $singleLayoutMap = $readLayoutMap($singleLayoutsDir, $singleLayoutFiles);
@@ -233,53 +269,39 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
             <input id="can_submit" type="hidden" value="<?= $permitSubmit ? '1' : '0' ?>" />
             <input id="enable_write_message" type="hidden" value="<?= htmlspecialchars($enableWriteMessage, ENT_QUOTES) ?>" />
 
-            <div class="w-full grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
-                <div class="p-4 rounded-md bg-slate-100 flex flex-col gap-3">
-                    <label class="font-semibold" for="image_settings_mode">Mode</label>
-                    <select id="image_settings_mode" class="rounded border border-slate-300 p-2">
-                        <option value="single" <?= $currentMode === 'single' ? 'selected' : '' ?>>Single shot</option>
-                        <option value="collage" <?= $currentMode === 'collage' ? 'selected' : '' ?>>Collage</option>
-                    </select>
-
-                    <label class="font-semibold" for="image_settings_saved_layouts">Saved layouts</label>
-                    <select id="image_settings_saved_layouts" class="rounded border border-slate-300 p-2"></select>
-                    <div class="flex gap-2">
-                        <button id="is_open_layout" type="button" class="px-3 py-2 rounded bg-indigo-200 text-indigo-900 font-semibold">Open</button>
-                        <button id="is_save_as" type="button" class="px-3 py-2 rounded bg-amber-200 text-amber-900 font-semibold">Save As</button>
+            <div class="w-full flex flex-col gap-3">
+                <div class="w-full p-3 rounded-md bg-slate-100 flex flex-wrap items-center gap-2 justify-between">
+                    <div class="flex items-center gap-2">
+                        <label class="font-semibold" for="image_settings_mode">Mode</label>
+                        <select id="image_settings_mode" class="rounded border border-slate-300 p-2">
+                            <option value="single" <?= $currentMode === 'single' ? 'selected' : '' ?>>Single shot</option>
+                            <option value="collage" <?= $currentMode === 'collage' ? 'selected' : '' ?>>Collage</option>
+                        </select>
+                        <select id="image_settings_saved_layouts" class="rounded border border-slate-300 p-2 min-w-56"></select>
                     </div>
-
-                    <label class="font-semibold" for="image_settings_width">Canvas width</label>
-                    <input id="image_settings_width" type="number" min="100" value="1500" class="rounded border border-slate-300 p-2" />
-
-                    <label class="font-semibold" for="image_settings_height">Canvas height</label>
-                    <input id="image_settings_height" type="number" min="100" value="1000" class="rounded border border-slate-300 p-2" />
-
-                    <label class="font-semibold" for="image_settings_background_color">Background color</label>
-                    <input id="image_settings_background_color" type="color" value="#ffffff" class="rounded border border-slate-300 p-2 h-10" />
-
-                    <label class="font-semibold" for="image_settings_background_image">Background image path</label>
-                    <input id="image_settings_background_image" type="text" placeholder="/resources/img/background/..." class="rounded border border-slate-300 p-2" />
-
-                    <label class="font-semibold" for="image_settings_background_fit">Background fit</label>
-                    <select id="image_settings_background_fit" class="rounded border border-slate-300 p-2">
-                        <option value="cover">Cover</option>
-                        <option value="contain">Contain</option>
-                        <option value="stretch">Stretch</option>
-                    </select>
-
-                    <div class="flex flex-wrap gap-2 pt-2">
-                        <button id="is_add_placeholder" type="button" class="px-3 py-2 rounded bg-blue-200 text-blue-900 font-semibold">Add Placeholder</button>
-                        <button id="is_add_text" type="button" class="px-3 py-2 rounded bg-orange-200 text-orange-900 font-semibold">Add Text</button>
-                        <button id="is_add_picture" type="button" class="px-3 py-2 rounded bg-emerald-200 text-emerald-900 font-semibold">Add Picture</button>
-                        <button id="is_delete_selected" type="button" class="px-3 py-2 rounded bg-rose-200 text-rose-900 font-semibold">Delete Selected</button>
-                        <button id="is_undo" type="button" class="px-3 py-2 rounded bg-slate-200 text-slate-900 font-semibold" disabled>Undo</button>
-                        <button id="is_redo" type="button" class="px-3 py-2 rounded bg-slate-200 text-slate-900 font-semibold" disabled>Redo</button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button id="is_open_layout" type="button" title="Open" class="w-10 h-10 rounded bg-indigo-200 text-indigo-900 font-semibold"><i class="fa fa-folder-open"></i></button>
+                        <button id="is_save_as" type="button" title="Save As" class="w-10 h-10 rounded bg-amber-200 text-amber-900 font-semibold"><i class="fa fa-copy"></i></button>
+                        <button id="is_delete_layout" type="button" title="Delete Layout" class="w-10 h-10 rounded bg-red-200 text-red-900 font-semibold"><i class="fa fa-trash"></i></button>
+                        <button id="is_canvas_settings" type="button" title="Canvas Settings" class="w-10 h-10 rounded bg-slate-200 text-slate-900 font-semibold"><i class="fa fa-sliders"></i></button>
+                        <button id="is_add_placeholder" type="button" title="Add Placeholder" class="w-10 h-10 rounded bg-blue-200 text-blue-900 font-semibold"><i class="fa fa-image"></i></button>
+                        <button id="is_add_text" type="button" title="Add Text" class="w-10 h-10 rounded bg-orange-200 text-orange-900 font-semibold"><i class="fa fa-font"></i></button>
+                        <button id="is_add_picture" type="button" title="Add Picture" class="w-10 h-10 rounded bg-emerald-200 text-emerald-900 font-semibold"><i class="fa fa-photo-film"></i></button>
+                        <button id="is_delete_selected" type="button" title="Delete Selected" class="w-10 h-10 rounded bg-rose-200 text-rose-900 font-semibold"><i class="fa fa-trash-can"></i></button>
+                        <button id="is_undo" type="button" title="Undo" class="w-10 h-10 rounded bg-slate-200 text-slate-900 font-semibold" disabled><i class="fa fa-rotate-left"></i></button>
+                        <button id="is_redo" type="button" title="Redo" class="w-10 h-10 rounded bg-slate-200 text-slate-900 font-semibold" disabled><i class="fa fa-rotate-right"></i></button>
                     </div>
                 </div>
 
-                <div id="image_settings_editor" class="w-full h-full min-h-[60vh] flex flex-col gap-2">
+                <input id="image_settings_width" type="hidden" min="100" value="1500" />
+                <input id="image_settings_height" type="hidden" min="100" value="1000" />
+                <input id="image_settings_background_color" type="hidden" value="#ffffff" />
+                <input id="image_settings_background_image" type="hidden" value="" />
+                <input id="image_settings_background_fit" type="hidden" value="cover" />
+
+                <div id="image_settings_editor" class="w-full h-full min-h-[72vh] flex flex-col gap-2">
                     <div class="text-xs text-slate-700">Resize works only from corners. Rotation is enabled for every object.</div>
-                    <div class="w-full h-full overflow-auto border-2 border-slate-400 rounded bg-white p-2">
+                    <div id="image_settings_canvas_viewport" class="w-full h-[72vh] overflow-hidden border-2 border-slate-400 rounded bg-white p-2 flex items-center justify-center">
                         <canvas id="image_settings_canvas" class="shadow-xl"></canvas>
                     </div>
                 </div>
@@ -294,6 +316,7 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
             <input id="editor_mode_input" type="hidden" name="editor-mode" value="<?= htmlspecialchars($currentMode, ENT_QUOTES) ?>" />
             <input id="editor_layout_file_single" type="hidden" name="editor-layout-file-single" value="<?= htmlspecialchars($selectedLayoutSingle, ENT_QUOTES) ?>" />
             <input id="editor_layout_file_collage" type="hidden" name="editor-layout-file-collage" value="<?= htmlspecialchars($selectedLayoutCollage, ENT_QUOTES) ?>" />
+            <input id="editor_layout_action" type="hidden" name="layout-action" value="save" />
             <input id="editor_payload_input" type="hidden" name="new-configuration" value="" />
         </form>
 
