@@ -50,7 +50,7 @@ class SyncToDrive {
 
     validateRsync() {
         try {
-            log(`Executing dry-run command: ${command} --dry-run`);
+            log('Checking rsync availability with: command -v rsync');
             execSync('command -v rsync', { stdio: 'ignore' });
         } catch (err) {
             log('test' + err.message);

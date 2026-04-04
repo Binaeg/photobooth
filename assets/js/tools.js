@@ -407,6 +407,7 @@ const photoboothTools = (function () {
                     return parsed;
                 }
             } catch (ignored) {
+                api.console.log('Failed to parse response as JSON.', ignored);
                 // Continue with relaxed extraction below.
             }
 
@@ -422,6 +423,7 @@ const photoboothTools = (function () {
                         return candidate;
                     }
                 } catch (ignored) {
+                    api.console.log('Failed to parse candidate response as JSON.', ignored);
                     // Try next candidate.
                 }
             }
