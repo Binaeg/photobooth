@@ -351,6 +351,7 @@ class Collage
         self::reset();
         $imageHandler = new Image();
         $v2TextLayers = [];
+        $v2ImageLayers = [];
         $isV2LayoutFromJson = false;
         $imageHandler->jpegQuality = 100;
         $editImages = [];
@@ -360,7 +361,10 @@ class Collage
             $collageJson = json_decode((string)file_get_contents($collageConfigFilePath), true);
 
             if (is_array($collageJson)) {
-                if (isset($collageJson['schemaVersion']) && (int) $collageJson['schemaVersion'] === 2) {
+                if (isset($collageJson['schemaVersion']) && in_array((int) $collageJson['schemaVersion'], [2, 3], true)) {
+                    if (isset($collageJson['mode']) && $collageJson['mode'] === 'single') {
+                        throw new \Exception('Invalid collage document mode: single.');
+                    }
                     $isV2LayoutFromJson = true;
                     $width = isset($collageJson['width']) ? (int) $collageJson['width'] : 0;
                     $height = isset($collageJson['height']) ? (int) $collageJson['height'] : 0;
@@ -450,6 +454,28 @@ class Collage
                             'fontPath' => isset($textObject['fontPath']) && is_string($textObject['fontPath']) ? $textObject['fontPath'] : $c->textOnCollageFont,
                             'fontSize' => isset($textObject['fontSize']) ? (int) round((float) $textObject['fontSize']) : $c->textOnCollageFontSize,
                             'fontColor' => isset($textObject['color']) && is_string($textObject['color']) ? $textObject['color'] : $c->textOnCollageFontColor,
+                        ];
+                    }
+
+                    $pictureObjects = array_values(array_filter($objects, static function ($object): bool {
+                        return is_array($object)
+                            && isset($object['type'])
+                            && $object['type'] === 'picture';
+                    }));
+                    usort($pictureObjects, static function (array $left, array $right): int {
+                        $leftZ = isset($left['zIndex']) ? (int) $left['zIndex'] : 0;
+                        $rightZ = isset($right['zIndex']) ? (int) $right['zIndex'] : 0;
+                        return $leftZ <=> $rightZ;
+                    });
+
+                    foreach ($pictureObjects as $pictureObject) {
+                        $v2ImageLayers[] = [
+                            'path' => isset($pictureObject['path']) && is_string($pictureObject['path']) ? $pictureObject['path'] : '',
+                            'x' => isset($pictureObject['x']) ? (int) round((float) $pictureObject['x']) : 0,
+                            'y' => isset($pictureObject['y']) ? (int) round((float) $pictureObject['y']) : 0,
+                            'width' => isset($pictureObject['width']) ? (int) round((float) $pictureObject['width']) : 1,
+                            'height' => isset($pictureObject['height']) ? (int) round((float) $pictureObject['height']) : 1,
+                            'rotation' => isset($pictureObject['rotation']) ? (int) round((float) $pictureObject['rotation']) : 0,
                         ];
                     }
 
@@ -710,6 +736,13 @@ class Collage
             $my_collage = $imageHandler->applyFrame($my_collage);
             if (!$my_collage instanceof \GdImage) {
                 throw new \Exception('Failed to apply frame on collage resource.');
+            }
+        }
+
+        if (!empty($v2ImageLayers)) {
+            $my_collage = $imageHandler->applyImageLayers($my_collage, $v2ImageLayers);
+            if (!$my_collage instanceof \GdImage) {
+                throw new \Exception('Failed to apply v2 image layers to collage resource.');
             }
         }
 

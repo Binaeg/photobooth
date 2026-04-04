@@ -836,6 +836,13 @@ return [
             'name' => 'LAYOUTGENERATOR',
             'value' => 'layout-generator',
         ],
+        'image_settings' => [
+            'view' => 'expert',
+            'type' => 'button',
+            'placeholder' => 'image_settings',
+            'name' => 'IMAGESETTINGS',
+            'value' => 'image-settings',
+        ],
         'collage_resolution' => [
             'view' => 'expert',
             'type' => 'select',

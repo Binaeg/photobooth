@@ -912,6 +912,65 @@ class Image
     }
 
     /**
+     * Apply picture layers onto a destination image resource.
+     *
+     * @param array<int, array<string, mixed>> $imageLayers
+     */
+    public function applyImageLayers(GdImage $destinationResource, array $imageLayers): GdImage
+    {
+        try {
+            foreach ($imageLayers as $layer) {
+                $path = isset($layer['path']) && is_string($layer['path']) ? $layer['path'] : '';
+                if ($path === '') {
+                    continue;
+                }
+
+                $targetX = isset($layer['x']) ? (int) $layer['x'] : 0;
+                $targetY = isset($layer['y']) ? (int) $layer['y'] : 0;
+                $targetWidth = max(1, isset($layer['width']) ? (int) $layer['width'] : 1);
+                $targetHeight = max(1, isset($layer['height']) ? (int) $layer['height'] : 1);
+                $rotation = isset($layer['rotation']) ? (int) $layer['rotation'] : 0;
+
+                $layerResource = $this->createFromImage($path);
+                if (!$layerResource instanceof \GdImage) {
+                    continue;
+                }
+
+                $layerResource = $this->resizeCropImage($layerResource, $targetWidth, $targetHeight);
+                if (!$layerResource instanceof \GdImage) {
+                    continue;
+                }
+
+                if ($rotation !== 0) {
+                    $layerResource = $this->rotateResizeImage(
+                        image: $layerResource,
+                        degrees: $rotation,
+                        useTransparentBackground: true
+                    );
+                    if (!$layerResource instanceof \GdImage) {
+                        continue;
+                    }
+                    $targetWidth = imagesx($layerResource);
+                    $targetHeight = imagesy($layerResource);
+                }
+
+                imagecopy($destinationResource, $layerResource, $targetX, $targetY, 0, 0, $targetWidth, $targetHeight);
+            }
+
+            $this->imageModified = true;
+            return $destinationResource;
+        } catch (\Exception $e) {
+            $this->addErrorData($e->getMessage());
+
+            if ($this->debugLevel > 1) {
+                throw $e;
+            }
+
+            return $destinationResource;
+        }
+    }
+
+    /**
      * Set the picture options for adding a picture to image resource.
      */
     public function setAddPictureOptions(int $x, int $y, int $width, int $height, int $rotation, ?bool $applyFrame = null): void

@@ -85,6 +85,13 @@ $(function () {
         return false;
     });
 
+    $('#image-settings').on('click', function (ev) {
+        ev.preventDefault();
+        window.open('../admin/imageSettings');
+
+        return false;
+    });
+
     $('#test-connection').on('click', function (e) {
         e.preventDefault();
         const elem = $(this);

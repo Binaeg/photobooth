@@ -227,6 +227,154 @@ try {
             }
         }
 
+        $singleLayoutConfigPath = PathUtility::getAbsolutePath('private/image-settings-single.json');
+        if (!$vars['isCollage'] && !$vars['isChroma'] && file_exists($singleLayoutConfigPath)) {
+            $singleLayoutRaw = file_get_contents($singleLayoutConfigPath);
+            $singleLayout = is_string($singleLayoutRaw) ? json_decode($singleLayoutRaw, true) : null;
+
+            if (
+                is_array($singleLayout)
+                && isset($singleLayout['schemaVersion'])
+                && (int) $singleLayout['schemaVersion'] >= 3
+                && isset($singleLayout['mode'])
+                && $singleLayout['mode'] === 'single'
+            ) {
+                $layoutWidth = isset($singleLayout['width']) ? (int) $singleLayout['width'] : imagesx($imageResource);
+                $layoutHeight = isset($singleLayout['height']) ? (int) $singleLayout['height'] : imagesy($imageResource);
+                $layoutWidth = max(1, $layoutWidth);
+                $layoutHeight = max(1, $layoutHeight);
+
+                $templateCanvas = imagecreatetruecolor($layoutWidth, $layoutHeight);
+                if (!$templateCanvas instanceof \GdImage) {
+                    throw new \Exception('Failed to create single-shot template canvas.');
+                }
+
+                $backgroundConfig = isset($singleLayout['background']) && is_array($singleLayout['background'])
+                    ? $singleLayout['background']
+                    : [];
+                $backgroundColor = isset($backgroundConfig['color']) && is_string($backgroundConfig['color'])
+                    ? $backgroundConfig['color']
+                    : '#FFFFFF';
+                [$bgR, $bgG, $bgB] = $imageHandler->getColorComponents($backgroundColor);
+                $bgColor = imagecolorallocate($templateCanvas, (int) $bgR, (int) $bgG, (int) $bgB);
+                imagefill($templateCanvas, 0, 0, (int) $bgColor);
+
+                $backgroundImagePath = isset($backgroundConfig['image']) && is_string($backgroundConfig['image'])
+                    ? $backgroundConfig['image']
+                    : '';
+                $backgroundFitMode = isset($backgroundConfig['fitMode']) && is_string($backgroundConfig['fitMode'])
+                    ? $backgroundConfig['fitMode']
+                    : 'cover';
+
+                if ($backgroundImagePath !== '') {
+                    $bgResource = $imageHandler->createFromImage($backgroundImagePath);
+                    if ($bgResource instanceof \GdImage) {
+                        if ($backgroundFitMode === 'contain') {
+                            $bgResource = $imageHandler->resizeImage($bgResource, $layoutWidth, $layoutHeight);
+                            if ($bgResource instanceof \GdImage) {
+                                $bgW = imagesx($bgResource);
+                                $bgH = imagesy($bgResource);
+                                $bgX = (int) floor(($layoutWidth - $bgW) / 2);
+                                $bgY = (int) floor(($layoutHeight - $bgH) / 2);
+                                imagecopy($templateCanvas, $bgResource, $bgX, $bgY, 0, 0, $bgW, $bgH);
+                            }
+                        } elseif ($backgroundFitMode === 'stretch') {
+                            imagecopyresampled(
+                                $templateCanvas,
+                                $bgResource,
+                                0,
+                                0,
+                                0,
+                                0,
+                                $layoutWidth,
+                                $layoutHeight,
+                                imagesx($bgResource),
+                                imagesy($bgResource)
+                            );
+                        } else {
+                            $bgResource = $imageHandler->resizeCropImage($bgResource, $layoutWidth, $layoutHeight);
+                            if ($bgResource instanceof \GdImage) {
+                                imagecopy($templateCanvas, $bgResource, 0, 0, 0, 0, $layoutWidth, $layoutHeight);
+                            }
+                        }
+                    }
+                }
+
+                $objects = isset($singleLayout['objects']) && is_array($singleLayout['objects'])
+                    ? $singleLayout['objects']
+                    : [];
+                usort($objects, static function (array $left, array $right): int {
+                    $leftZ = isset($left['zIndex']) ? (int) $left['zIndex'] : 0;
+                    $rightZ = isset($right['zIndex']) ? (int) $right['zIndex'] : 0;
+                    return $leftZ <=> $rightZ;
+                });
+
+                $singleTextLayers = [];
+                $singlePictureLayers = [];
+                foreach ($objects as $object) {
+                    if (!is_array($object) || !isset($object['type'])) {
+                        continue;
+                    }
+
+                    if ($object['type'] === 'placeholder') {
+                        $slotW = max(1, isset($object['width']) ? (int) $object['width'] : imagesx($imageResource));
+                        $slotH = max(1, isset($object['height']) ? (int) $object['height'] : imagesy($imageResource));
+                        $slotX = isset($object['x']) ? (int) $object['x'] : 0;
+                        $slotY = isset($object['y']) ? (int) $object['y'] : 0;
+                        $slotRotation = isset($object['rotation']) ? (int) $object['rotation'] : 0;
+
+                        $slotImage = $imageHandler->resizeCropImage($imageResource, $slotW, $slotH);
+                        if ($slotImage instanceof \GdImage && $slotRotation !== 0) {
+                            $slotImage = $imageHandler->rotateResizeImage(
+                                image: $slotImage,
+                                degrees: $slotRotation,
+                                useTransparentBackground: true
+                            );
+                        }
+
+                        if ($slotImage instanceof \GdImage) {
+                            $copyW = imagesx($slotImage);
+                            $copyH = imagesy($slotImage);
+                            imagecopy($templateCanvas, $slotImage, $slotX, $slotY, 0, 0, $copyW, $copyH);
+                        }
+                    }
+
+                    if ($object['type'] === 'picture') {
+                        $singlePictureLayers[] = [
+                            'path' => isset($object['path']) ? (string) $object['path'] : '',
+                            'x' => isset($object['x']) ? (int) $object['x'] : 0,
+                            'y' => isset($object['y']) ? (int) $object['y'] : 0,
+                            'width' => isset($object['width']) ? (int) $object['width'] : 1,
+                            'height' => isset($object['height']) ? (int) $object['height'] : 1,
+                            'rotation' => isset($object['rotation']) ? (int) $object['rotation'] : 0,
+                        ];
+                    }
+
+                    if ($object['type'] === 'text') {
+                        $singleTextLayers[] = [
+                            'text' => isset($object['text']) ? (string) $object['text'] : '',
+                            'x' => isset($object['x']) ? (int) $object['x'] : 0,
+                            'y' => isset($object['y']) ? (int) $object['y'] : 0,
+                            'rotation' => isset($object['rotation']) ? (int) $object['rotation'] : 0,
+                            'fontPath' => isset($object['fontPath']) ? (string) $object['fontPath'] : $config['textonpicture']['font'],
+                            'fontSize' => isset($object['fontSize']) ? (int) $object['fontSize'] : (int) $config['textonpicture']['font_size'],
+                            'fontColor' => isset($object['color']) ? (string) $object['color'] : $config['textonpicture']['font_color'],
+                        ];
+                    }
+                }
+
+                if (!empty($singlePictureLayers)) {
+                    $templateCanvas = $imageHandler->applyImageLayers($templateCanvas, $singlePictureLayers);
+                }
+                if (!empty($singleTextLayers)) {
+                    $templateCanvas = $imageHandler->applyTextLayers($templateCanvas, $singleTextLayers);
+                }
+
+                $imageResource = $templateCanvas;
+                $imageHandler->imageModified = true;
+            }
+        }
+
         // image scale, create thumbnail
         $thumb_size = intval(substr($config['picture']['thumb_size'], 0, -2));
         $thumbResource = $imageHandler->resizeImage($imageResource, $thumb_size);

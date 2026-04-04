@@ -215,6 +215,7 @@
   "gallery:pswp_zoomEl": "Show PhotoSwipe zoom button",
   "gallery_no_image": "The gallery is still empty. Take some pictures!",
   "general": "General",
+  "image_settings": "Image settings generator",
   "general:adminpanel_experimental_settings": "Show Experimental Settings",
   "general:adminpanel_view": "Admin Options",
   "general:database_enabled": "Use database for images",

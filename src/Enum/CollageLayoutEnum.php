@@ -78,6 +78,21 @@ enum CollageLayoutEnum: string implements LabelInterface
         $collageConfig = json_decode((string)file_get_contents($collageConfigFilePath), true);
 
         if (is_array($collageConfig)) {
+            if (
+                isset($collageConfig['schemaVersion'])
+                && (int) $collageConfig['schemaVersion'] >= 2
+                && isset($collageConfig['objects'])
+                && is_array($collageConfig['objects'])
+            ) {
+                $placeholderCount = count(array_filter($collageConfig['objects'], static function ($object): bool {
+                    return is_array($object)
+                        && isset($object['type'])
+                        && $object['type'] === 'placeholder';
+                }));
+
+                return $placeholderCount;
+            }
+
             return array_key_exists('layout', $collageConfig)
                 ? count($collageConfig['layout'])
                 : count($collageConfig);
