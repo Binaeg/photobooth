@@ -354,7 +354,22 @@ const photoboothTools = (function () {
         }, to);
     };
 
-    api.printImage = function (imageSrc, copies, cb) {
+    api.getPrintQueueJobCount = async function () {
+        try {
+            const response = await fetch(environment.publicFolders.api + '/printDB.php?action=getQueueJobCount', {
+                cache: 'no-store'
+            });
+            const data = await response.json();
+
+            return data.jobCount || 0;
+        } catch (error) {
+            api.console.log('ERROR: Failed to fetch print queue job count: ', error);
+
+            return 0;
+        }
+    };
+
+    api.printImage = async function (imageSrc, copies, cb) {
         const handlePrintResponse = function (data) {
             api.console.log('Picture processed: ', data);
 
@@ -438,6 +453,18 @@ const photoboothTools = (function () {
         } else if (api.isPrinting) {
             api.console.log('Printing in progress: ' + api.isPrinting);
         } else {
+            const queueJobCount = await api.getPrintQueueJobCount();
+            if (queueJobCount > 0) {
+                const wantsToQueue = await api.confirm(api.getTranslation('print_queue_confirm'));
+                if (!wantsToQueue) {
+                    api.console.log('Print cancelled by user: printer queue has ' + queueJobCount + ' pending job(s).');
+                    if (typeof cb === 'function') {
+                        cb();
+                    }
+                    return;
+                }
+            }
+
             api.overlay.show(api.getTranslation('printing'));
             api.isPrinting = true;
             if (typeof remoteBuzzerClient !== 'undefined') {

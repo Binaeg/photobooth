@@ -9,7 +9,7 @@ header('Content-Type: application/json');
 $action = $_GET['action'];
 
 // Validate action
-$validActions = ['getPrintCount', 'unlockPrint'];
+$validActions = ['getPrintCount', 'unlockPrint', 'getQueueJobCount'];
 if (!in_array($action, $validActions)) {
     $LogData = [
         'error' => 'Invalid action.',
@@ -38,6 +38,12 @@ try {
 
             $LogData = [
                 'success' => $unlock,
+            ];
+            break;
+
+        case 'getQueueJobCount':
+            $LogData = [
+                'jobCount' => $printManager->getPrintQueueJobCount(),
             ];
             break;
     }

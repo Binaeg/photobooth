@@ -1,0 +1,7 @@
+[Unit]
+Description=CUPS Queue Watchdog
+After=cups.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/cups-watchdog.sh

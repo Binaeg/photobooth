@@ -3,6 +3,7 @@
 namespace Photobooth\Service;
 
 use Photobooth\Enum\FolderEnum;
+use Photobooth\Environment;
 
 class PrintManagerService
 {
@@ -139,6 +140,23 @@ class PrintManagerService
         } catch (\Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * Get the number of jobs currently waiting in the CUPS print queue.
+     * A non-zero count usually means the printer is stuck (e.g. out of paper).
+     */
+    public function getPrintQueueJobCount(): int
+    {
+        if (!Environment::isLinux()) {
+            return 0;
+        }
+
+        $output = [];
+        $returnValue = 0;
+        exec('lpstat -o 2>/dev/null', $output, $returnValue);
+
+        return count($output);
     }
 
     /**
