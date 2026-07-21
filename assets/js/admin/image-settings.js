@@ -296,6 +296,8 @@
         const group = new fabric.Group([box, label], {
             objectType: 'placeholder',
             placeholderIndex: safeIndex,
+            originX: 'left',
+            originY: 'top',
             left: left || 80,
             top: top || 80,
             angle: angle || 0,
@@ -310,6 +312,8 @@
     function createTextObject(textValue, left, top, angle, fontSize, color, fontPath) {
         const object = new fabric.Textbox(textValue || 'Your text', {
             objectType: 'text',
+            originX: 'left',
+            originY: 'top',
             left: left || 100,
             top: top || 100,
             angle: angle || 0,
@@ -332,6 +336,8 @@
                 img.set({
                     objectType: 'picture',
                     sourcePath: path,
+                    originX: 'left',
+                    originY: 'top',
                     left: left || 100,
                     top: top || 100,
                     angle: angle || 0,
