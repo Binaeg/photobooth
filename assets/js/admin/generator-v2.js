@@ -33,7 +33,7 @@
         try {
             const parsed = JSON.parse(input.value);
             return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
+        } catch {
             return [];
         }
     }
@@ -321,7 +321,9 @@
                 loadImageElement(demoImages[0]).then(function (imgEl) {
                     applyPhotoPreviewToPlaceholder(obj, imgEl);
                     canvas.requestRenderAll();
-                }).catch(function () {});
+                }).catch(function (error) {
+                    console.log('Unable to load demo image for placeholder preview', error);
+                });
             }
         }
     }
