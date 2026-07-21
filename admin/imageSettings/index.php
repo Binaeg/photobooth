@@ -280,17 +280,40 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
                         </select>
                         <select id="image_settings_saved_layouts" class="rounded border border-slate-300 p-2 min-w-56"></select>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <button id="is_open_layout" type="button" title="Open" class="w-10 h-10 rounded bg-indigo-200 text-indigo-900 font-semibold"><i class="fa fa-folder-open"></i></button>
-                        <button id="is_save_as" type="button" title="Save As" class="w-10 h-10 rounded bg-amber-200 text-amber-900 font-semibold"><i class="fa fa-copy"></i></button>
-                        <button id="is_delete_layout" type="button" title="Delete Layout" class="w-10 h-10 rounded bg-red-200 text-red-900 font-semibold"><i class="fa fa-trash"></i></button>
-                        <button id="is_canvas_settings" type="button" title="Canvas Settings" class="w-10 h-10 rounded bg-slate-200 text-slate-900 font-semibold"><i class="fa fa-sliders"></i></button>
-                        <button id="is_add_placeholder" type="button" title="Add Placeholder" class="w-10 h-10 rounded bg-blue-200 text-blue-900 font-semibold"><i class="fa fa-image"></i></button>
-                        <button id="is_add_text" type="button" title="Add Text" class="w-10 h-10 rounded bg-orange-200 text-orange-900 font-semibold"><i class="fa fa-font"></i></button>
-                        <button id="is_add_picture" type="button" title="Add Picture" class="w-10 h-10 rounded bg-emerald-200 text-emerald-900 font-semibold"><i class="fa fa-photo-film"></i></button>
-                        <button id="is_delete_selected" type="button" title="Delete Selected" class="w-10 h-10 rounded bg-rose-200 text-rose-900 font-semibold"><i class="fa fa-trash-can"></i></button>
-                        <button id="is_undo" type="button" title="Undo" class="w-10 h-10 rounded bg-slate-200 text-slate-900 font-semibold" disabled><i class="fa fa-rotate-left"></i></button>
-                        <button id="is_redo" type="button" title="Redo" class="w-10 h-10 rounded bg-slate-200 text-slate-900 font-semibold" disabled><i class="fa fa-rotate-right"></i></button>
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Layout</span>
+                            <div class="flex items-center gap-2">
+                                <button id="is_open_layout" type="button" title="Open" class="w-10 h-10 rounded bg-slate-200 text-slate-700 font-semibold"><i class="fa fa-folder-open"></i></button>
+                                <button id="is_save_as" type="button" title="Save As" class="w-10 h-10 rounded bg-slate-200 text-slate-700 font-semibold"><i class="fa fa-copy"></i></button>
+                                <button id="is_delete_layout" type="button" title="Delete Layout" class="w-10 h-10 rounded bg-red-200 text-red-900 font-semibold"><i class="fa fa-trash"></i></button>
+                                <button id="is_canvas_settings" type="button" title="Canvas Settings" class="w-10 h-10 rounded bg-slate-200 text-slate-700 font-semibold"><i class="fa fa-sliders"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 border-l border-slate-300 pl-4">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-blue-600">Instanz (pro Foto)</span>
+                            <div class="flex items-center gap-2">
+                                <button id="is_add_placeholder" type="button" title="Add Placeholder" class="w-10 h-10 rounded border-2 border-dashed border-blue-600 bg-blue-100 text-blue-900 font-semibold"><i class="fa fa-image"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 border-l border-slate-300 pl-4">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-violet-600">Vorlage (statisch)</span>
+                            <div class="flex items-center gap-2">
+                                <button id="is_add_text" type="button" title="Add Text" class="w-10 h-10 rounded bg-violet-100 text-violet-900 font-semibold"><i class="fa fa-font"></i></button>
+                                <button id="is_add_picture" type="button" title="Add Picture" class="w-10 h-10 rounded bg-violet-100 text-violet-900 font-semibold"><i class="fa fa-photo-film"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-1 border-l border-slate-300 pl-4">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bearbeiten</span>
+                            <div class="flex items-center gap-2">
+                                <button id="is_delete_selected" type="button" title="Delete Selected" class="w-10 h-10 rounded bg-rose-200 text-rose-900 font-semibold"><i class="fa fa-trash-can"></i></button>
+                                <button id="is_undo" type="button" title="Undo" class="w-10 h-10 rounded bg-slate-200 text-slate-700 font-semibold" disabled><i class="fa fa-rotate-left"></i></button>
+                                <button id="is_redo" type="button" title="Redo" class="w-10 h-10 rounded bg-slate-200 text-slate-700 font-semibold" disabled><i class="fa fa-rotate-right"></i></button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
