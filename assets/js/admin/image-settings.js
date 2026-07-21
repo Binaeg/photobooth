@@ -178,8 +178,7 @@
 
     function updateCanvasDimensions() {
         const dimensions = getCanvasDimensions();
-        canvas.setWidth(dimensions.width);
-        canvas.setHeight(dimensions.height);
+        canvas.setDimensions({ width: dimensions.width, height: dimensions.height });
         canvas.calcOffset();
         fitCanvasToViewport();
         canvas.requestRenderAll();
