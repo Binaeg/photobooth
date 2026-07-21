@@ -286,16 +286,22 @@
     }
 
     function getDefaultPlaceholderSize() {
+        const dimensions = getCanvasDimensions();
         const ratio = getPhotoAspectRatio();
         if (!ratio) {
-            return { width: 320, height: 220 };
+            return { width: dimensions.width, height: dimensions.height };
         }
 
-        const dimensions = getCanvasDimensions();
-        const defaultWidth = Math.min(dimensions.width * 0.4, 320 * Math.max(ratio, 1));
+        let width = dimensions.width;
+        let height = width / ratio;
+        if (height > dimensions.height) {
+            height = dimensions.height;
+            width = height * ratio;
+        }
+
         return {
-            width: Math.round(defaultWidth),
-            height: Math.round(defaultWidth / ratio)
+            width: Math.round(width),
+            height: Math.round(height)
         };
     }
 
@@ -401,7 +407,11 @@
             return;
         }
 
-        const obj = createPlaceholderObject(80 + historyIndex * 3, 80 + historyIndex * 3, 320, 220, 0, placeholderCounter);
+        const dimensions = getCanvasDimensions();
+        const defaultSize = getDefaultPlaceholderSize();
+        const left = (dimensions.width - defaultSize.width) / 2;
+        const top = (dimensions.height - defaultSize.height) / 2;
+        const obj = createPlaceholderObject(left, top, defaultSize.width, defaultSize.height, 0, placeholderCounter);
         placeholderCounter += 1;
         canvas.add(obj);
         canvas.setActiveObject(obj);
