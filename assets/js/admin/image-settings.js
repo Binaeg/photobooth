@@ -62,17 +62,10 @@
         return parsed;
     }
 
+    const photoAspectRatio = 2 / 3;
+
     function getPhotoAspectRatio() {
-        const widthEl = document.getElementById('photo_ref_width');
-        const heightEl = document.getElementById('photo_ref_height');
-        const refWidth = widthEl ? parseInt(widthEl.value, 10) : 0;
-        const refHeight = heightEl ? parseInt(heightEl.value, 10) : 0;
-
-        if (refWidth > 0 && refHeight > 0) {
-            return refWidth / refHeight;
-        }
-
-        return null;
+        return photoAspectRatio;
     }
 
     function getMode() {
@@ -946,39 +939,58 @@
         target.setCoords();
         const bounds = target.getBoundingRect();
 
-        if (bounds.width > 0) {
-            if (isRight && Math.abs((bounds.left + bounds.width) - canvasWidth) < snapThreshold) {
-                const factor = (canvasWidth - bounds.left) / bounds.width;
-                target.set('scaleX', target.scaleX * factor);
-                if (target.lockAspectRatio) {
-                    target.set('scaleY', target.scaleX);
-                }
-            } else if (isLeft && Math.abs(bounds.left) < snapThreshold) {
-                const rightEdge = bounds.left + bounds.width;
-                const factor = rightEdge / bounds.width;
-                target.set({ scaleX: target.scaleX * factor, left: 0 });
-                if (target.lockAspectRatio) {
-                    target.set('scaleY', target.scaleX);
-                }
+        let horizontal = null;
+        if (isRight && bounds.width > 0) {
+            const distance = Math.abs((bounds.left + bounds.width) - canvasWidth);
+            if (distance < snapThreshold) {
+                horizontal = { factor: (canvasWidth - bounds.left) / bounds.width, distance, anchorLeft: null };
+            }
+        } else if (isLeft && bounds.width > 0) {
+            const distance = Math.abs(bounds.left);
+            if (distance < snapThreshold) {
+                horizontal = { factor: (bounds.left + bounds.width) / bounds.width, distance, anchorLeft: 0 };
             }
         }
 
-        target.setCoords();
-        const verticalBounds = target.getBoundingRect();
+        let vertical = null;
+        if (isBottom && bounds.height > 0) {
+            const distance = Math.abs((bounds.top + bounds.height) - canvasHeight);
+            if (distance < snapThreshold) {
+                vertical = { factor: (canvasHeight - bounds.top) / bounds.height, distance, anchorTop: null };
+            }
+        } else if (isTop && bounds.height > 0) {
+            const distance = Math.abs(bounds.top);
+            if (distance < snapThreshold) {
+                vertical = { factor: (bounds.top + bounds.height) / bounds.height, distance, anchorTop: 0 };
+            }
+        }
 
-        if (verticalBounds.height > 0) {
-            if (isBottom && Math.abs((verticalBounds.top + verticalBounds.height) - canvasHeight) < snapThreshold) {
-                const factor = (canvasHeight - verticalBounds.top) / verticalBounds.height;
-                target.set('scaleY', target.scaleY * factor);
-                if (target.lockAspectRatio) {
-                    target.set('scaleX', target.scaleY);
+        if (target.lockAspectRatio) {
+            // Only one uniform factor can be applied at a time, otherwise the
+            // second axis silently overrides the first and the object jumps.
+            // Prefer whichever edge is actually closer to its snap line.
+            const chosen = horizontal && (!vertical || horizontal.distance <= vertical.distance) ? horizontal : vertical;
+            if (chosen) {
+                const newScale = target.scaleX * chosen.factor;
+                target.set({ scaleX: newScale, scaleY: newScale });
+                if (chosen.anchorLeft !== undefined && chosen.anchorLeft !== null) {
+                    target.set('left', chosen.anchorLeft);
                 }
-            } else if (isTop && Math.abs(verticalBounds.top) < snapThreshold) {
-                const bottomEdge = verticalBounds.top + verticalBounds.height;
-                const factor = bottomEdge / verticalBounds.height;
-                target.set({ scaleY: target.scaleY * factor, top: 0 });
-                if (target.lockAspectRatio) {
-                    target.set('scaleX', target.scaleY);
+                if (chosen.anchorTop !== undefined && chosen.anchorTop !== null) {
+                    target.set('top', chosen.anchorTop);
+                }
+            }
+        } else {
+            if (horizontal) {
+                target.set('scaleX', target.scaleX * horizontal.factor);
+                if (horizontal.anchorLeft !== null) {
+                    target.set('left', horizontal.anchorLeft);
+                }
+            }
+            if (vertical) {
+                target.set('scaleY', target.scaleY * vertical.factor);
+                if (vertical.anchorTop !== null) {
+                    target.set('top', vertical.anchorTop);
                 }
             }
         }
