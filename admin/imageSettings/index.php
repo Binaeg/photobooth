@@ -268,6 +268,7 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
             <input id="collage_layout_map_json" type="hidden" value="<?= $collageLayoutMapJson ?>" />
             <input id="can_submit" type="hidden" value="<?= $permitSubmit ? '1' : '0' ?>" />
             <input id="enable_write_message" type="hidden" value="<?= htmlspecialchars($enableWriteMessage, ENT_QUOTES) ?>" />
+            <input id="app_base_path" type="hidden" value="<?= PathUtility::getPublicPath('') ?>" />
 
             <div class="w-full flex flex-col gap-3">
                 <div class="w-full p-3 rounded-md bg-slate-100 flex flex-wrap items-center gap-2 justify-between">

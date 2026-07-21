@@ -35,6 +35,24 @@
     const singleLayoutTargetInput = document.getElementById('editor_layout_file_single');
     const collageLayoutTargetInput = document.getElementById('editor_layout_file_collage');
 
+    function getAppBasePath() {
+        const input = document.getElementById('app_base_path');
+        return input && input.value ? input.value : '/';
+    }
+
+    function toPublicUrl(rawPath) {
+        if (!rawPath) {
+            return '';
+        }
+        if (/^(https?:)?\/\//i.test(rawPath) || rawPath.startsWith('data:') || rawPath.startsWith('/')) {
+            return rawPath;
+        }
+
+        const base = getAppBasePath();
+        const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+        return normalizedBase + '/' + rawPath.replace(/^\//, '');
+    }
+
     function clampNumber(value, min, fallback) {
         const parsed = parseInt(value, 10);
         if (Number.isNaN(parsed) || parsed < min) {
@@ -176,7 +194,7 @@
         const viewportHeight = Math.max(100, canvasViewport.clientHeight - 16);
         const logicalWidth = canvas.getWidth();
         const logicalHeight = canvas.getHeight();
-        const scale = Math.min(viewportWidth / logicalWidth, viewportHeight / logicalHeight, 1);
+        const scale = Math.min(viewportWidth / logicalWidth, viewportHeight / logicalHeight);
 
         canvas.setDimensions(
             {
@@ -190,56 +208,61 @@
 
     function applyBackground() {
         const background = getBackgroundPayload();
-        canvas.setBackgroundColor(background.color, canvas.renderAll.bind(canvas));
+        canvas.backgroundColor = background.color;
+        canvas.requestRenderAll();
 
         if (!background.image) {
-            canvas.backgroundImage = null;
+            canvas.backgroundImage = undefined;
             canvas.requestRenderAll();
             return;
         }
 
-        fabric.Image.fromURL(background.image, function (img) {
-            const canvasWidth = canvas.getWidth();
-            const canvasHeight = canvas.getHeight();
-            const imgWidth = img.width || canvasWidth;
-            const imgHeight = img.height || canvasHeight;
-            const scaleX = canvasWidth / imgWidth;
-            const scaleY = canvasHeight / imgHeight;
+        fabric.Image.fromURL(toPublicUrl(background.image), { crossOrigin: 'anonymous' })
+            .then(function (img) {
+                const canvasWidth = canvas.getWidth();
+                const canvasHeight = canvas.getHeight();
+                const imgWidth = img.width || canvasWidth;
+                const imgHeight = img.height || canvasHeight;
+                const scaleX = canvasWidth / imgWidth;
+                const scaleY = canvasHeight / imgHeight;
 
-            if (background.fitMode === 'contain') {
-                const scale = Math.min(scaleX, scaleY);
-                img.set({
-                    originX: 'left',
-                    originY: 'top',
-                    left: (canvasWidth - imgWidth * scale) / 2,
-                    top: (canvasHeight - imgHeight * scale) / 2,
-                    scaleX: scale,
-                    scaleY: scale
-                });
-            } else if (background.fitMode === 'stretch') {
-                img.set({
-                    originX: 'left',
-                    originY: 'top',
-                    left: 0,
-                    top: 0,
-                    scaleX,
-                    scaleY
-                });
-            } else {
-                const scale = Math.max(scaleX, scaleY);
-                img.set({
-                    originX: 'left',
-                    originY: 'top',
-                    left: (canvasWidth - imgWidth * scale) / 2,
-                    top: (canvasHeight - imgHeight * scale) / 2,
-                    scaleX: scale,
-                    scaleY: scale
-                });
-            }
+                if (background.fitMode === 'contain') {
+                    const scale = Math.min(scaleX, scaleY);
+                    img.set({
+                        originX: 'left',
+                        originY: 'top',
+                        left: (canvasWidth - imgWidth * scale) / 2,
+                        top: (canvasHeight - imgHeight * scale) / 2,
+                        scaleX: scale,
+                        scaleY: scale
+                    });
+                } else if (background.fitMode === 'stretch') {
+                    img.set({
+                        originX: 'left',
+                        originY: 'top',
+                        left: 0,
+                        top: 0,
+                        scaleX,
+                        scaleY
+                    });
+                } else {
+                    const scale = Math.max(scaleX, scaleY);
+                    img.set({
+                        originX: 'left',
+                        originY: 'top',
+                        left: (canvasWidth - imgWidth * scale) / 2,
+                        top: (canvasHeight - imgHeight * scale) / 2,
+                        scaleX: scale,
+                        scaleY: scale
+                    });
+                }
 
-            canvas.set('backgroundImage', img);
-            canvas.requestRenderAll();
-        }, { crossOrigin: 'anonymous' });
+                canvas.backgroundImage = img;
+                canvas.requestRenderAll();
+            })
+            .catch(function (error) {
+                console.log('Unable to load background image', error);
+            });
     }
 
     function buildPlaceholderLabel(index) {
@@ -305,29 +328,33 @@
     }
 
     function createPictureObject(path, left, top, width, height, angle, callback) {
-        fabric.Image.fromURL(path, function (img) {
-            img.set({
-                objectType: 'picture',
-                sourcePath: path,
-                left: left || 100,
-                top: top || 100,
-                angle: angle || 0,
-                borderColor: '#059669',
-                cornerColor: '#047857'
-            });
+        fabric.Image.fromURL(toPublicUrl(path), { crossOrigin: 'anonymous' })
+            .then(function (img) {
+                img.set({
+                    objectType: 'picture',
+                    sourcePath: path,
+                    left: left || 100,
+                    top: top || 100,
+                    angle: angle || 0,
+                    borderColor: '#059669',
+                    cornerColor: '#047857'
+                });
 
-            const targetWidth = Math.max(80, width || 300);
-            const targetHeight = Math.max(80, height || 220);
-            const nativeWidth = img.width || targetWidth;
-            const nativeHeight = img.height || targetHeight;
-            img.set({
-                scaleX: targetWidth / nativeWidth,
-                scaleY: targetHeight / nativeHeight
-            });
+                const targetWidth = Math.max(80, width || 300);
+                const targetHeight = Math.max(80, height || 220);
+                const nativeWidth = img.width || targetWidth;
+                const nativeHeight = img.height || targetHeight;
+                img.set({
+                    scaleX: targetWidth / nativeWidth,
+                    scaleY: targetHeight / nativeHeight
+                });
 
-            setCornerOnlyControls(img);
-            callback(img);
-        }, { crossOrigin: 'anonymous' });
+                setCornerOnlyControls(img);
+                callback(img);
+            })
+            .catch(function (error) {
+                console.log('Unable to load picture', error);
+            });
     }
 
     function getPlaceholderCount() {
@@ -383,7 +410,7 @@
             return;
         }
 
-        const snapshot = JSON.stringify(canvas.toJSON(['objectType', 'placeholderIndex', 'fontPath', 'sourcePath']));
+        const snapshot = JSON.stringify(canvas.toObject(['objectType', 'placeholderIndex', 'fontPath', 'sourcePath']));
         if (history[historyIndex] === snapshot) {
             return;
         }
@@ -407,7 +434,7 @@
         }
 
         restoringState = true;
-        canvas.loadFromJSON(history[index], function () {
+        canvas.loadFromJSON(history[index]).then(function () {
             canvas.getObjects().forEach(setCornerOnlyControls);
             canvas.requestRenderAll();
             restoringState = false;
@@ -546,12 +573,8 @@
         }
 
         updateCanvasDimensions();
-        applyBackground();
         canvas.clear();
-
-        if (documentData.background && documentData.background.color) {
-            canvas.setBackgroundColor(documentData.background.color, canvas.renderAll.bind(canvas));
-        }
+        applyBackground();
 
         const objects = Array.isArray(documentData.objects) ? documentData.objects : [];
         const ordered = objects.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
