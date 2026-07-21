@@ -240,6 +240,40 @@ const photoboothTools = (function () {
         });
     };
 
+    api.alert = async (message) => {
+        return new Promise((resolve) => {
+            const element = document.createElement('dialog');
+            element.classList.add('dialog');
+            element.classList.add('rotarygroup');
+
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('dialog-message');
+            messageElement.textContent = message;
+            element.appendChild(messageElement);
+
+            const buttonbar = document.createElement('div');
+            buttonbar.classList.add('dialog-buttonbar');
+            element.appendChild(buttonbar);
+
+            const okButton = api.button.create('confirm', 'fa fa-check', 'default', 'dialog-');
+            okButton.addEventListener('click', () => {
+                element.close(true);
+                element.remove();
+                resolve();
+            });
+            buttonbar.appendChild(okButton);
+
+            element.addEventListener('cancel', function () {
+                element.close(true);
+                element.remove();
+                resolve();
+            });
+
+            document.body.append(element);
+            element.showModal();
+        });
+    };
+
     api.askCopies = async () => {
         return new Promise((resolve) => {
             const element = document.createElement('dialog');
@@ -455,14 +489,12 @@ const photoboothTools = (function () {
         } else {
             const queueJobCount = await api.getPrintQueueJobCount();
             if (queueJobCount > 0) {
-                const wantsToQueue = await api.confirm(api.getTranslation('print_queue_confirm'));
-                if (!wantsToQueue) {
-                    api.console.log('Print cancelled by user: printer queue has ' + queueJobCount + ' pending job(s).');
-                    if (typeof cb === 'function') {
-                        cb();
-                    }
-                    return;
+                api.console.log('Print blocked: printer queue has ' + queueJobCount + ' pending job(s), likely out of paper.');
+                await api.alert(api.getTranslation('print_queue_confirm'));
+                if (typeof cb === 'function') {
+                    cb();
                 }
+                return;
             }
 
             api.overlay.show(api.getTranslation('printing'));

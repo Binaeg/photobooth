@@ -826,7 +826,7 @@
   "print:textonprint_locationx": "X-Koordinaten",
   "print:textonprint_locationy": "Y-Koordinaten",
   "print:textonprint_rotation": "Text-Rotation",
-  "print_queue_confirm": "Es scheint, als ob der Drucker kein Papier mehr hat. Möchtest du das Bild zur Warteschlange hinzufügen?",
+  "print_queue_confirm": "Dem Drucker ist das Papier ausgegangen. Bitte lass eine neue Rolle einlegen, danach kann es weitergehen!",
   "print_queued": "Bild zur Druckwarteschlange hinzugefügt.",
   "printdb": "Druckdatenbank",
   "printed": "Gedruckt:",
