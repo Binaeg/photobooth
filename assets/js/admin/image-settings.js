@@ -62,6 +62,19 @@
         return parsed;
     }
 
+    function getPhotoAspectRatio() {
+        const widthEl = document.getElementById('photo_ref_width');
+        const heightEl = document.getElementById('photo_ref_height');
+        const refWidth = widthEl ? parseInt(widthEl.value, 10) : 0;
+        const refHeight = heightEl ? parseInt(heightEl.value, 10) : 0;
+
+        if (refWidth > 0 && refHeight > 0) {
+            return refWidth / refHeight;
+        }
+
+        return null;
+    }
+
     function getMode() {
         return modeSelect ? modeSelect.value : 'single';
     }
@@ -172,7 +185,7 @@
         object.set({
             cornerStyle: 'circle',
             transparentCorners: false,
-            padding: 8
+            padding: 0
         });
     }
 
@@ -275,9 +288,24 @@
         });
     }
 
+    function getDefaultPlaceholderSize() {
+        const ratio = getPhotoAspectRatio();
+        if (!ratio) {
+            return { width: 320, height: 220 };
+        }
+
+        const dimensions = getCanvasDimensions();
+        const defaultWidth = Math.min(dimensions.width * 0.4, 320 * Math.max(ratio, 1));
+        return {
+            width: Math.round(defaultWidth),
+            height: Math.round(defaultWidth / ratio)
+        };
+    }
+
     function createPlaceholderObject(left, top, width, height, angle, index) {
-        const safeWidth = Math.max(120, width || 320);
-        const safeHeight = Math.max(120, height || 220);
+        const defaultSize = getDefaultPlaceholderSize();
+        const safeWidth = Math.max(120, width || defaultSize.width);
+        const safeHeight = Math.max(120, height || defaultSize.height);
         const safeIndex = index || placeholderCounter;
 
         const box = new fabric.Rect({
@@ -296,6 +324,7 @@
         const group = new fabric.Group([box, label], {
             objectType: 'placeholder',
             placeholderIndex: safeIndex,
+            lockAspectRatio: true,
             originX: 'left',
             originY: 'top',
             left: left || 80,
@@ -415,7 +444,7 @@
             return;
         }
 
-        const snapshot = JSON.stringify(canvas.toObject(['objectType', 'placeholderIndex', 'fontPath', 'sourcePath']));
+        const snapshot = JSON.stringify(canvas.toObject(['objectType', 'placeholderIndex', 'fontPath', 'sourcePath', 'lockAspectRatio']));
         if (history[historyIndex] === snapshot) {
             return;
         }
@@ -840,9 +869,125 @@
         saveHistory();
     }
 
+    const snapThreshold = 10;
+
+    function handleObjectMoving(e) {
+        const target = e.target;
+        if (!target) {
+            return;
+        }
+
+        target.setCoords();
+        const bounds = target.getBoundingRect();
+        const canvasWidth = canvas.getWidth();
+        const canvasHeight = canvas.getHeight();
+
+        let dx = 0;
+        let dy = 0;
+
+        const leftDelta = 0 - bounds.left;
+        const rightDelta = canvasWidth - (bounds.left + bounds.width);
+        const hCenterDelta = (canvasWidth / 2) - (bounds.left + bounds.width / 2);
+
+        if (Math.abs(leftDelta) < snapThreshold) {
+            dx = leftDelta;
+        } else if (Math.abs(rightDelta) < snapThreshold) {
+            dx = rightDelta;
+        } else if (Math.abs(hCenterDelta) < snapThreshold) {
+            dx = hCenterDelta;
+        }
+
+        const topDelta = 0 - bounds.top;
+        const bottomDelta = canvasHeight - (bounds.top + bounds.height);
+        const vCenterDelta = (canvasHeight / 2) - (bounds.top + bounds.height / 2);
+
+        if (Math.abs(topDelta) < snapThreshold) {
+            dy = topDelta;
+        } else if (Math.abs(bottomDelta) < snapThreshold) {
+            dy = bottomDelta;
+        } else if (Math.abs(vCenterDelta) < snapThreshold) {
+            dy = vCenterDelta;
+        }
+
+        if (dx !== 0 || dy !== 0) {
+            target.set({ left: target.left + dx, top: target.top + dy });
+            target.setCoords();
+        }
+    }
+
+    function handleObjectScaling(e) {
+        const target = e.target;
+        if (!target) {
+            return;
+        }
+
+        if (target.lockAspectRatio) {
+            target.set('scaleY', target.scaleX);
+        }
+
+        const transform = e.transform;
+        if (!transform || !transform.corner || Math.abs(target.angle || 0) > 0.5) {
+            target.setCoords();
+            return;
+        }
+
+        const corner = transform.corner;
+        const isRight = corner === 'tr' || corner === 'br' || corner === 'mr';
+        const isLeft = corner === 'tl' || corner === 'bl' || corner === 'ml';
+        const isBottom = corner === 'bl' || corner === 'br' || corner === 'mb';
+        const isTop = corner === 'tl' || corner === 'tr' || corner === 'mt';
+
+        const canvasWidth = canvas.getWidth();
+        const canvasHeight = canvas.getHeight();
+
+        target.setCoords();
+        const bounds = target.getBoundingRect();
+
+        if (bounds.width > 0) {
+            if (isRight && Math.abs((bounds.left + bounds.width) - canvasWidth) < snapThreshold) {
+                const factor = (canvasWidth - bounds.left) / bounds.width;
+                target.set('scaleX', target.scaleX * factor);
+                if (target.lockAspectRatio) {
+                    target.set('scaleY', target.scaleX);
+                }
+            } else if (isLeft && Math.abs(bounds.left) < snapThreshold) {
+                const rightEdge = bounds.left + bounds.width;
+                const factor = rightEdge / bounds.width;
+                target.set({ scaleX: target.scaleX * factor, left: 0 });
+                if (target.lockAspectRatio) {
+                    target.set('scaleY', target.scaleX);
+                }
+            }
+        }
+
+        target.setCoords();
+        const verticalBounds = target.getBoundingRect();
+
+        if (verticalBounds.height > 0) {
+            if (isBottom && Math.abs((verticalBounds.top + verticalBounds.height) - canvasHeight) < snapThreshold) {
+                const factor = (canvasHeight - verticalBounds.top) / verticalBounds.height;
+                target.set('scaleY', target.scaleY * factor);
+                if (target.lockAspectRatio) {
+                    target.set('scaleX', target.scaleY);
+                }
+            } else if (isTop && Math.abs(verticalBounds.top) < snapThreshold) {
+                const bottomEdge = verticalBounds.top + verticalBounds.height;
+                const factor = bottomEdge / verticalBounds.height;
+                target.set({ scaleY: target.scaleY * factor, top: 0 });
+                if (target.lockAspectRatio) {
+                    target.set('scaleX', target.scaleY);
+                }
+            }
+        }
+
+        target.setCoords();
+    }
+
     function bindEvents() {
         canvas.on('object:added', saveHistory);
         canvas.on('object:modified', saveHistory);
+        canvas.on('object:moving', handleObjectMoving);
+        canvas.on('object:scaling', handleObjectScaling);
         canvas.on('object:removed', saveHistory);
 
         const addPlaceholderButton = document.getElementById('is_add_placeholder');

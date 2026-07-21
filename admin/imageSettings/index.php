@@ -5,6 +5,7 @@ use Photobooth\Service\ConfigurationService;
 use Photobooth\Service\ApplicationService;
 use Photobooth\Service\LanguageService;
 use Photobooth\Service\AssetService;
+use Photobooth\Utility\ImageUtility;
 use Photobooth\Utility\PathUtility;
 
 if (!(
@@ -242,6 +243,22 @@ if ($selectedLayoutCollage === '' && !empty($collageLayoutFiles)) {
     $selectedLayoutCollage = $collageLayoutFiles[0];
 }
 
+$photoRefWidth = 0;
+$photoRefHeight = 0;
+try {
+    $demoImagesForRatio = ImageUtility::getDemoImages(1);
+    if (!empty($demoImagesForRatio)) {
+        $demoImageSize = getimagesize($demoImagesForRatio[0]);
+        if (is_array($demoImageSize) && $demoImageSize[0] > 0 && $demoImageSize[1] > 0) {
+            $photoRefWidth = (int) $demoImageSize[0];
+            $photoRefHeight = (int) $demoImageSize[1];
+        }
+    }
+} catch (\Exception $exception) {
+    $photoRefWidth = 0;
+    $photoRefHeight = 0;
+}
+
 $singleConfigJson = htmlspecialchars(json_encode($singleConfig, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
 $collageConfigJson = htmlspecialchars(json_encode($collageConfig, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
 $singleLayoutFilesJson = htmlspecialchars(json_encode($singleLayoutFiles, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES);
@@ -269,6 +286,8 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
             <input id="can_submit" type="hidden" value="<?= $permitSubmit ? '1' : '0' ?>" />
             <input id="enable_write_message" type="hidden" value="<?= htmlspecialchars($enableWriteMessage, ENT_QUOTES) ?>" />
             <input id="app_base_path" type="hidden" value="<?= PathUtility::getPublicPath('') ?>" />
+            <input id="photo_ref_width" type="hidden" value="<?= $photoRefWidth ?>" />
+            <input id="photo_ref_height" type="hidden" value="<?= $photoRefHeight ?>" />
 
             <div class="w-full flex flex-col gap-3">
                 <div class="w-full p-3 rounded-md bg-slate-100 flex flex-wrap items-center gap-2 justify-between">
