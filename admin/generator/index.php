@@ -274,6 +274,8 @@ $font_styles .= '</style>';
                         <input id="current_config" type="hidden" value='<?= json_encode($collageJson) ?>' />
                         <input id="can_submit" type="hidden" value='<?= $permitSubmit ?>' />
                         <input id="start_preloaded" type="hidden" value='<?= $startPreloaded ?>' />
+                        <input id="app_base_path" type="hidden" value="<?= PathUtility::getPublicPath('') ?>" />
+                        <input id="v2_demo_images" type="hidden" value='<?= htmlspecialchars(json_encode(array_map(static fn ($file): string => PathUtility::getPublicPath($file), $demoImages)), ENT_QUOTES) ?>' />
                         <?php if ($enableWriteMessage !== '') { ?>
                             <input id='enable_write_message' type='hidden' value='<?= $enableWriteMessage ?>' />
                         <?php } ?>
@@ -756,6 +758,7 @@ AdminInput::renderColor(
                         <button id="v2_add_placeholder" type="button" class="px-3 py-2 rounded bg-blue-200 text-blue-900 font-semibold">Add Placeholder</button>
                         <button id="v2_add_text" type="button" class="px-3 py-2 rounded bg-orange-200 text-orange-900 font-semibold">Add Text</button>
                         <button id="v2_delete_selected" type="button" class="px-3 py-2 rounded bg-rose-200 text-rose-900 font-semibold">Delete Selected</button>
+                        <button id="v2_toggle_photo_preview" type="button" class="px-3 py-2 rounded bg-emerald-200 text-emerald-900 font-semibold">Preview Photos</button>
                         <button id="v2_undo" type="button" class="px-3 py-2 rounded bg-slate-200 text-slate-900 font-semibold" disabled>Undo</button>
                         <button id="v2_redo" type="button" class="px-3 py-2 rounded bg-slate-200 text-slate-900 font-semibold" disabled>Redo</button>
                     </div>

@@ -13,11 +13,43 @@
     let historyIndex = -1;
     let restoringState = false;
     let placeholderCounter = 1;
+    let photoPreviewEnabled = false;
 
     const canvas = new fabric.Canvas(canvasElementId, {
         preserveObjectStacking: true,
         selection: true
     });
+
+    function getAppBasePath() {
+        const input = document.getElementById('app_base_path');
+        return input && input.value ? input.value : '/';
+    }
+
+    function getDemoImages() {
+        const input = document.getElementById('v2_demo_images');
+        if (!input || !input.value) {
+            return [];
+        }
+        try {
+            const parsed = JSON.parse(input.value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function toPublicUrl(rawPath) {
+        if (!rawPath) {
+            return '';
+        }
+        if (/^(https?:)?\/\//i.test(rawPath) || rawPath.startsWith('data:') || rawPath.startsWith('/')) {
+            return rawPath;
+        }
+
+        const base = getAppBasePath();
+        const normalizedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+        return normalizedBase + '/' + rawPath.replace(/^\//, '');
+    }
 
     function clampNumber(value, min, fallback) {
         const parsed = parseInt(value, 10);
@@ -60,56 +92,61 @@
 
     function applyBackground() {
         const background = getBackgroundPayload();
-        canvas.setBackgroundColor(background.color, canvas.renderAll.bind(canvas));
+        canvas.backgroundColor = background.color;
+        canvas.requestRenderAll();
 
         if (!background.image) {
-            canvas.backgroundImage = null;
+            canvas.backgroundImage = undefined;
             canvas.requestRenderAll();
             return;
         }
 
-        fabric.Image.fromURL(background.image, function (img) {
-            const canvasWidth = canvas.getWidth();
-            const canvasHeight = canvas.getHeight();
-            const imgWidth = img.width || canvasWidth;
-            const imgHeight = img.height || canvasHeight;
-            const scaleX = canvasWidth / imgWidth;
-            const scaleY = canvasHeight / imgHeight;
+        fabric.Image.fromURL(toPublicUrl(background.image), { crossOrigin: 'anonymous' })
+            .then(function (img) {
+                const canvasWidth = canvas.getWidth();
+                const canvasHeight = canvas.getHeight();
+                const imgWidth = img.width || canvasWidth;
+                const imgHeight = img.height || canvasHeight;
+                const scaleX = canvasWidth / imgWidth;
+                const scaleY = canvasHeight / imgHeight;
 
-            if (background.fitMode === 'contain') {
-                const scale = Math.min(scaleX, scaleY);
-                img.set({
-                    originX: 'left',
-                    originY: 'top',
-                    left: (canvasWidth - imgWidth * scale) / 2,
-                    top: (canvasHeight - imgHeight * scale) / 2,
-                    scaleX: scale,
-                    scaleY: scale
-                });
-            } else if (background.fitMode === 'stretch') {
-                img.set({
-                    originX: 'left',
-                    originY: 'top',
-                    left: 0,
-                    top: 0,
-                    scaleX,
-                    scaleY
-                });
-            } else {
-                const scale = Math.max(scaleX, scaleY);
-                img.set({
-                    originX: 'left',
-                    originY: 'top',
-                    left: (canvasWidth - imgWidth * scale) / 2,
-                    top: (canvasHeight - imgHeight * scale) / 2,
-                    scaleX: scale,
-                    scaleY: scale
-                });
-            }
+                if (background.fitMode === 'contain') {
+                    const scale = Math.min(scaleX, scaleY);
+                    img.set({
+                        originX: 'left',
+                        originY: 'top',
+                        left: (canvasWidth - imgWidth * scale) / 2,
+                        top: (canvasHeight - imgHeight * scale) / 2,
+                        scaleX: scale,
+                        scaleY: scale
+                    });
+                } else if (background.fitMode === 'stretch') {
+                    img.set({
+                        originX: 'left',
+                        originY: 'top',
+                        left: 0,
+                        top: 0,
+                        scaleX,
+                        scaleY
+                    });
+                } else {
+                    const scale = Math.max(scaleX, scaleY);
+                    img.set({
+                        originX: 'left',
+                        originY: 'top',
+                        left: (canvasWidth - imgWidth * scale) / 2,
+                        top: (canvasHeight - imgHeight * scale) / 2,
+                        scaleX: scale,
+                        scaleY: scale
+                    });
+                }
 
-            canvas.set('backgroundImage', img);
-            canvas.requestRenderAll();
-        }, { crossOrigin: 'anonymous' });
+                canvas.backgroundImage = img;
+                canvas.requestRenderAll();
+            })
+            .catch(function (error) {
+                console.log('Unable to load background image', error);
+            });
     }
 
     function buildPlaceholderLabel(index) {
@@ -159,6 +196,91 @@
         return group;
     }
 
+    function loadImageElement(url) {
+        return new Promise(function (resolve, reject) {
+            const imgEl = new Image();
+            imgEl.crossOrigin = 'anonymous';
+            imgEl.onload = function () {
+                resolve(imgEl);
+            };
+            imgEl.onerror = reject;
+            imgEl.src = url;
+        });
+    }
+
+    function buildCoverPatternSource(imgEl, width, height) {
+        const patternCanvas = document.createElement('canvas');
+        patternCanvas.width = Math.max(1, Math.round(width));
+        patternCanvas.height = Math.max(1, Math.round(height));
+        const ctx = patternCanvas.getContext('2d');
+        const scale = Math.max(width / imgEl.width, height / imgEl.height);
+        const drawWidth = imgEl.width * scale;
+        const drawHeight = imgEl.height * scale;
+        const offsetX = (width - drawWidth) / 2;
+        const offsetY = (height - drawHeight) / 2;
+        ctx.drawImage(imgEl, offsetX, offsetY, drawWidth, drawHeight);
+        return patternCanvas;
+    }
+
+    function applyPhotoPreviewToPlaceholder(group, imgEl) {
+        const box = group._objects[0];
+        const label = group._objects[1];
+        const source = buildCoverPatternSource(imgEl, box.width, box.height);
+        box.set('fill', new fabric.Pattern({ source: source, repeat: 'no-repeat' }));
+        if (label) {
+            label.set('visible', false);
+        }
+    }
+
+    function clearPhotoPreviewFromPlaceholder(group) {
+        const box = group._objects[0];
+        const label = group._objects[1];
+        box.set('fill', '#dbeafe');
+        if (label) {
+            label.set('visible', true);
+        }
+    }
+
+    function updatePhotoPreviewButton() {
+        const button = document.getElementById('v2_toggle_photo_preview');
+        if (button) {
+            button.textContent = photoPreviewEnabled ? 'Hide Photos' : 'Preview Photos';
+        }
+    }
+
+    function togglePhotoPreview() {
+        const placeholders = canvas.getObjects().filter(function (obj) {
+            return obj.objectType === 'placeholder';
+        });
+        const demoImages = getDemoImages();
+
+        if (!photoPreviewEnabled && demoImages.length === 0) {
+            return;
+        }
+
+        photoPreviewEnabled = !photoPreviewEnabled;
+
+        if (photoPreviewEnabled) {
+            Promise.all(placeholders.map(function (group, i) {
+                const url = demoImages[i % demoImages.length];
+                return loadImageElement(url)
+                    .then(function (imgEl) {
+                        applyPhotoPreviewToPlaceholder(group, imgEl);
+                    })
+                    .catch(function (error) {
+                        console.log('Unable to load demo image for placeholder preview', error);
+                    });
+            })).then(function () {
+                canvas.requestRenderAll();
+            });
+        } else {
+            placeholders.forEach(clearPhotoPreviewFromPlaceholder);
+            canvas.requestRenderAll();
+        }
+
+        updatePhotoPreviewButton();
+    }
+
     function createTextObject(textValue, left, top, angle, fontSize, color, fontPath) {
         const content = textValue || 'Double-click to edit';
         const text = new fabric.Textbox(content, {
@@ -192,6 +314,16 @@
         canvas.add(obj);
         canvas.setActiveObject(obj);
         canvas.requestRenderAll();
+
+        if (photoPreviewEnabled) {
+            const demoImages = getDemoImages();
+            if (demoImages.length > 0) {
+                loadImageElement(demoImages[0]).then(function (imgEl) {
+                    applyPhotoPreviewToPlaceholder(obj, imgEl);
+                    canvas.requestRenderAll();
+                }).catch(function () {});
+            }
+        }
     }
 
     function addText() {
@@ -229,7 +361,7 @@
             return;
         }
 
-        const snapshot = JSON.stringify(canvas.toJSON(['objectType', 'placeholderIndex', 'fontPath']));
+        const snapshot = JSON.stringify(canvas.toObject(['objectType', 'placeholderIndex', 'fontPath']));
         if (history[historyIndex] === snapshot) {
             return;
         }
@@ -253,7 +385,7 @@
         }
 
         restoringState = true;
-        canvas.loadFromJSON(history[index], function () {
+        canvas.loadFromJSON(history[index]).then(function () {
             canvas.requestRenderAll();
             restoringState = false;
             historyIndex = index;
@@ -380,12 +512,8 @@
         }
 
         updateCanvasDimensions();
-        applyBackground();
         canvas.clear();
-
-        if (documentData.background && documentData.background.color) {
-            canvas.setBackgroundColor(documentData.background.color, canvas.renderAll.bind(canvas));
-        }
+        applyBackground();
 
         const objects = Array.isArray(documentData.objects) ? documentData.objects : [];
         objects
@@ -485,6 +613,11 @@
         const deleteButton = document.getElementById('v2_delete_selected');
         if (deleteButton) {
             deleteButton.addEventListener('click', removeSelectedObject);
+        }
+
+        const photoPreviewButton = document.getElementById('v2_toggle_photo_preview');
+        if (photoPreviewButton) {
+            photoPreviewButton.addEventListener('click', togglePhotoPreview);
         }
 
         const undoButton = document.getElementById('v2_undo');
