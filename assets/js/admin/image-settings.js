@@ -66,7 +66,7 @@
         return typeof value === 'number' && !Number.isNaN(value) ? value : fallback;
     }
 
-    const photoAspectRatio = 2 / 3;
+    const photoAspectRatio = 3 / 2;
 
     function getPhotoAspectRatio() {
         return photoAspectRatio;
