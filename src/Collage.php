@@ -451,7 +451,7 @@ class Collage
                             'x' => isset($textObject['x']) ? (int) round((float) $textObject['x']) : 0,
                             'y' => isset($textObject['y']) ? (int) round((float) $textObject['y']) : 0,
                             'rotation' => isset($textObject['rotation']) ? (int) round((float) $textObject['rotation']) : 0,
-                            'fontPath' => isset($textObject['fontPath']) && is_string($textObject['fontPath']) ? $textObject['fontPath'] : $c->textOnCollageFont,
+                            'fontPath' => isset($textObject['fontPath']) && is_string($textObject['fontPath']) && $textObject['fontPath'] !== '' ? $textObject['fontPath'] : $c->textOnCollageFont,
                             'fontSize' => isset($textObject['fontSize']) ? (int) round((float) $textObject['fontSize']) : $c->textOnCollageFontSize,
                             'fontColor' => isset($textObject['color']) && is_string($textObject['color']) ? $textObject['color'] : $c->textOnCollageFontColor,
                         ];
@@ -748,6 +748,7 @@ class Collage
 
         if ($c->textOnCollageEnabled === 'enabled') {
             if (!empty($v2TextLayers)) {
+                $imageHandler->fontPath = $c->textOnCollageFont;
                 $my_collage = $imageHandler->applyTextLayers($my_collage, $v2TextLayers);
                 if (!$my_collage instanceof \GdImage) {
                     throw new \Exception('Failed to apply v2 text layers to collage resource.');

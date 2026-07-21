@@ -22,12 +22,16 @@ class FontUtility
     public static function getFontPath(string $font): string
     {
         $fontName = basename($font);
+        if ($fontName === '') {
+            return '';
+        }
+
         $privateFontPath = FolderEnum::PRIVATE->absolute() . DIRECTORY_SEPARATOR . 'fonts' . DIRECTORY_SEPARATOR . $fontName;
         $fontPath = FolderEnum::RESOURCES->absolute() . DIRECTORY_SEPARATOR . 'fonts' . DIRECTORY_SEPARATOR . $fontName;
 
-        if (is_readable($privateFontPath)) {
+        if (is_file($privateFontPath) && is_readable($privateFontPath)) {
             return $privateFontPath;
-        } elseif (is_readable($fontPath)) {
+        } elseif (is_file($fontPath) && is_readable($fontPath)) {
             return $fontPath;
         }
 

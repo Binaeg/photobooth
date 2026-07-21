@@ -855,7 +855,7 @@ class Image
                     continue;
                 }
 
-                $fontPathSetting = isset($layer['fontPath']) && is_string($layer['fontPath'])
+                $fontPathSetting = isset($layer['fontPath']) && is_string($layer['fontPath']) && $layer['fontPath'] !== ''
                     ? $layer['fontPath']
                     : $this->fontPath;
                 $fontPath = PathUtility::getAbsolutePath($fontPathSetting);
