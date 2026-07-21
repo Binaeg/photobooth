@@ -941,7 +941,30 @@
         const canvasHeight = canvas.getHeight();
 
         target.setCoords();
-        const bounds = target.getBoundingRect();
+        let bounds = target.getBoundingRect();
+
+        // Snap the fixed (non-dragged) anchor corner into exact alignment first.
+        // Otherwise, if the anchor sits even a few px off a canvas edge, filling
+        // to the dragged corner while locked to an aspect ratio will hit one axis
+        // exactly and leave a proportional gap on the other.
+        let anchorDX = 0;
+        let anchorDY = 0;
+        if (isRight && Math.abs(bounds.left) < snapThreshold) {
+            anchorDX = -bounds.left;
+        } else if (isLeft && Math.abs((bounds.left + bounds.width) - canvasWidth) < snapThreshold) {
+            anchorDX = canvasWidth - (bounds.left + bounds.width);
+        }
+        if (isBottom && Math.abs(bounds.top) < snapThreshold) {
+            anchorDY = -bounds.top;
+        } else if (isTop && Math.abs((bounds.top + bounds.height) - canvasHeight) < snapThreshold) {
+            anchorDY = canvasHeight - (bounds.top + bounds.height);
+        }
+
+        if (anchorDX !== 0 || anchorDY !== 0) {
+            target.set({ left: target.left + anchorDX, top: target.top + anchorDY });
+            target.setCoords();
+            bounds = target.getBoundingRect();
+        }
 
         let horizontal = null;
         if (isRight && bounds.width > 0) {
