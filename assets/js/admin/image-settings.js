@@ -62,6 +62,10 @@
         return parsed;
     }
 
+    function numberOr(value, fallback) {
+        return typeof value === 'number' && !Number.isNaN(value) ? value : fallback;
+    }
+
     const photoAspectRatio = 2 / 3;
 
     function getPhotoAspectRatio() {
@@ -297,8 +301,8 @@
 
     function createPlaceholderObject(left, top, width, height, angle, index) {
         const defaultSize = getDefaultPlaceholderSize();
-        const safeWidth = Math.max(120, width || defaultSize.width);
-        const safeHeight = Math.max(120, height || defaultSize.height);
+        const safeWidth = Math.max(120, numberOr(width, defaultSize.width));
+        const safeHeight = Math.max(120, numberOr(height, defaultSize.height));
         const safeIndex = index || placeholderCounter;
 
         const box = new fabric.Rect({
@@ -323,9 +327,9 @@
             height: safeHeight,
             originX: 'left',
             originY: 'top',
-            left: left || 80,
-            top: top || 80,
-            angle: angle || 0,
+            left: numberOr(left, 80),
+            top: numberOr(top, 80),
+            angle: numberOr(angle, 0),
             borderColor: '#2563eb',
             cornerColor: '#1d4ed8'
         });
@@ -339,11 +343,11 @@
             objectType: 'text',
             originX: 'left',
             originY: 'top',
-            left: left || 100,
-            top: top || 100,
-            angle: angle || 0,
+            left: numberOr(left, 100),
+            top: numberOr(top, 100),
+            angle: numberOr(angle, 0),
             width: 360,
-            fontSize: fontSize || 56,
+            fontSize: numberOr(fontSize, 56),
             fill: color || '#111111',
             fontFamily: 'sans-serif',
             fontPath: fontPath || '',
@@ -363,15 +367,15 @@
                     sourcePath: path,
                     originX: 'left',
                     originY: 'top',
-                    left: left || 100,
-                    top: top || 100,
-                    angle: angle || 0,
+                    left: numberOr(left, 100),
+                    top: numberOr(top, 100),
+                    angle: numberOr(angle, 0),
                     borderColor: '#059669',
                     cornerColor: '#047857'
                 });
 
-                const targetWidth = Math.max(80, width || 300);
-                const targetHeight = Math.max(80, height || 220);
+                const targetWidth = Math.max(80, numberOr(width, 300));
+                const targetHeight = Math.max(80, numberOr(height, 220));
                 const nativeWidth = img.width || targetWidth;
                 const nativeHeight = img.height || targetHeight;
                 img.set({
