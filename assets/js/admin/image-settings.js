@@ -1,4 +1,5 @@
 /* globals fabric, photoboothTools */
+/* eslint n/no-unsupported-features/node-builtins: "off" */
 (function () {
     'use strict';
 
