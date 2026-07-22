@@ -1025,53 +1025,6 @@
         }
     }
 
-    function openCanvasSettingsDialog() {
-        const currentWidth = getCanvasDimensions().width;
-        const currentHeight = getCanvasDimensions().height;
-        const currentBackground = getBackgroundPayload();
-
-        const nextWidth = prompt('Canvas width', String(currentWidth));
-        if (nextWidth === null) {
-            return;
-        }
-        const nextHeight = prompt('Canvas height', String(currentHeight));
-        if (nextHeight === null) {
-            return;
-        }
-        const nextColor = prompt('Background color (#RRGGBB)', currentBackground.color || '#ffffff');
-        if (nextColor === null) {
-            return;
-        }
-        const nextImage = prompt('Background image path (optional)', currentBackground.image || '');
-        if (nextImage === null) {
-            return;
-        }
-        const nextFit = prompt('Background fit: cover | contain | stretch', currentBackground.fitMode || 'cover');
-        if (nextFit === null) {
-            return;
-        }
-
-        if (widthInput) {
-            widthInput.value = String(clampNumber(nextWidth, 100, currentWidth));
-        }
-        if (heightInput) {
-            heightInput.value = String(clampNumber(nextHeight, 100, currentHeight));
-        }
-        if (bgColorInput) {
-            bgColorInput.value = nextColor.trim() || '#ffffff';
-        }
-        if (bgImageInput) {
-            bgImageInput.value = nextImage.trim();
-        }
-        if (bgFitInput) {
-            const normalizedFit = ['cover', 'contain', 'stretch'].includes(nextFit.trim()) ? nextFit.trim() : 'cover';
-            bgFitInput.value = normalizedFit;
-        }
-
-        updateCanvasDimensions();
-        applyBackground();
-    }
-
     function openSelectedLayout() {
         if (!savedLayoutsSelect) {
             console.warn('[image-settings] openSelectedLayout: no savedLayoutsSelect element found');
@@ -1317,11 +1270,6 @@
             addPictureButton.addEventListener('click', addPicture);
         }
 
-        const deleteButton = document.getElementById('is_delete_selected');
-        if (deleteButton) {
-            deleteButton.addEventListener('click', removeSelectedObject);
-        }
-
         const undoButton = document.getElementById('is_undo');
         if (undoButton) {
             undoButton.addEventListener('click', undo);
@@ -1447,11 +1395,6 @@
             savedLayoutsSelect.addEventListener('change', openSelectedLayout);
         }
 
-        const openLayoutButton = document.getElementById('is_open_layout');
-        if (openLayoutButton) {
-            openLayoutButton.addEventListener('click', openSelectedLayout);
-        }
-
         const saveAsButton = document.getElementById('is_save_as');
         if (saveAsButton) {
             saveAsButton.addEventListener('click', saveImageSettingsAs);
@@ -1460,11 +1403,6 @@
         const deleteLayoutButton = document.getElementById('is_delete_layout');
         if (deleteLayoutButton) {
             deleteLayoutButton.addEventListener('click', deleteSelectedLayout);
-        }
-
-        const canvasSettingsButton = document.getElementById('is_canvas_settings');
-        if (canvasSettingsButton) {
-            canvasSettingsButton.addEventListener('click', openCanvasSettingsDialog);
         }
 
         window.addEventListener('resize', fitCanvasToViewport);
