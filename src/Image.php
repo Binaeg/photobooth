@@ -858,14 +858,17 @@ class Image
                 $fontPathSetting = isset($layer['fontPath']) && is_string($layer['fontPath']) && $layer['fontPath'] !== ''
                     ? $layer['fontPath']
                     : $this->fontPath;
-                $fontPath = PathUtility::getAbsolutePath($fontPathSetting);
                 $tempFontPath = $_SERVER['DOCUMENT_ROOT'] . '/tempfont-v2.ttf';
                 $isTempFont = false;
 
                 $fontSize = isset($layer['fontSize']) ? max((int) $layer['fontSize'], 1) : $this->fontSize;
                 $fontRotation = isset($layer['rotation']) ? (int) $layer['rotation'] : $this->fontRotation;
-                $fontLocationX = isset($layer['x']) ? (int) $layer['x'] : $this->fontLocationX;
-                $fontLocationY = isset($layer['y']) ? (int) $layer['y'] + $fontSize : $this->fontLocationY;
+                $boxX = isset($layer['x']) ? (int) $layer['x'] : $this->fontLocationX;
+                $boxY = isset($layer['y']) ? (int) $layer['y'] : $this->fontLocationY;
+                $boxWidth = isset($layer['width']) && (int) $layer['width'] > 0 ? (int) $layer['width'] : null;
+                $boxHeight = isset($layer['height']) && (int) $layer['height'] > 0 ? (int) $layer['height'] : null;
+                $textAlign = isset($layer['textAlign']) && is_string($layer['textAlign']) ? $layer['textAlign'] : 'left';
+                $verticalAlign = isset($layer['verticalAlign']) && is_string($layer['verticalAlign']) ? $layer['verticalAlign'] : 'top';
                 $fontColor = isset($layer['fontColor']) && is_string($layer['fontColor'])
                     ? $layer['fontColor']
                     : $this->fontColor;
@@ -887,8 +890,53 @@ class Image
                     $fontPath = FontUtility::getFontPath($fontPathSetting);
                 }
 
-                if (!imagettftext($sourceResource, $fontSize, $fontRotation, $fontLocationX, $fontLocationY, $color, $fontPath, $text)) {
-                    throw new \Exception('Could not add v2 text line to resource.');
+                // Re-wrap the text server-side (using the same font/size as the preview) so multi-line
+                // boxes break at the same width instead of relying on the raw, un-wrapped string.
+                $lines = $boxWidth !== null
+                    ? self::wrapTextToWidth($text, $fontSize, $fontPath, $boxWidth)
+                    : (preg_split('/\r\n|\r|\n/', $text) ?: [$text]);
+
+                $lineHeight = (int) round($fontSize * 1.16);
+                $blockHeight = $lineHeight * count($lines);
+
+                $startY = 0.0;
+                if ($boxHeight !== null) {
+                    if ($verticalAlign === 'middle') {
+                        $startY = ($boxHeight - $blockHeight) / 2;
+                    } elseif ($verticalAlign === 'bottom') {
+                        $startY = $boxHeight - $blockHeight;
+                    }
+                }
+
+                $angleRad = deg2rad($fontRotation);
+                $cos = cos($angleRad);
+                $sin = sin($angleRad);
+
+                foreach ($lines as $index => $line) {
+                    if ($line === '') {
+                        continue;
+                    }
+
+                    $localX = 0.0;
+                    if ($boxWidth !== null && $textAlign !== 'left') {
+                        $lineWidth = self::measureTextWidth($line, $fontSize, $fontPath);
+                        if ($textAlign === 'center') {
+                            $localX = ($boxWidth - $lineWidth) / 2;
+                        } elseif ($textAlign === 'right') {
+                            $localX = $boxWidth - $lineWidth;
+                        }
+                    }
+                    // baseline sits roughly one font size below the top of its own line
+                    $localY = $startY + $lineHeight * $index + $fontSize;
+
+                    // rotate the line's offset around the box origin so wrapped/aligned lines
+                    // stay stacked along the box's own (possibly rotated) axis
+                    $lineX = (int) round($boxX + $localX * $cos + $localY * $sin);
+                    $lineY = (int) round($boxY - $localX * $sin + $localY * $cos);
+
+                    if (!imagettftext($sourceResource, $fontSize, $fontRotation, $lineX, $lineY, $color, $fontPath, $line)) {
+                        throw new \Exception('Could not add v2 text line to resource.');
+                    }
                 }
 
                 if ($isTempFont && file_exists($tempFontPath)) {
@@ -909,6 +957,63 @@ class Image
 
             return $sourceResource;
         }
+    }
+
+    /**
+     * Measure the rendered pixel width of a single line of text for the given font/size.
+     */
+    private static function measureTextWidth(string $text, int $fontSize, string $fontPath): float
+    {
+        if ($text === '' || $fontPath === '') {
+            return 0.0;
+        }
+
+        $bbox = imagettfbbox($fontSize, 0, $fontPath, $text);
+        if ($bbox === false) {
+            return 0.0;
+        }
+
+        return (float) abs($bbox[2] - $bbox[0]);
+    }
+
+    /**
+     * Greedy word-wrap: breaks `$text` into lines that each fit within `$maxWidth` pixels,
+     * measured with the same font file/size used for the final render.
+     *
+     * @return array<int, string>
+     */
+    private static function wrapTextToWidth(string $text, int $fontSize, string $fontPath, int $maxWidth): array
+    {
+        $paragraphs = preg_split('/\r\n|\r|\n/', $text) ?: [$text];
+        $lines = [];
+
+        foreach ($paragraphs as $paragraph) {
+            $words = array_values(array_filter(preg_split('/\s+/', $paragraph) ?: [], static fn (string $word): bool => $word !== ''));
+
+            if (empty($words)) {
+                $lines[] = '';
+                continue;
+            }
+
+            $current = '';
+            foreach ($words as $word) {
+                $candidate = $current === '' ? $word : $current . ' ' . $word;
+                $width = self::measureTextWidth($candidate, $fontSize, $fontPath);
+
+                if ($width > $maxWidth && $current !== '') {
+                    $lines[] = $current;
+                    $current = $word;
+                } else {
+                    $current = $candidate;
+                }
+            }
+
+            if ($current !== '') {
+                $lines[] = $current;
+            }
+        }
+
+        return $lines ?: [''];
     }
 
     /**

@@ -35,6 +35,12 @@
     const singleLayoutTargetInput = document.getElementById('editor_layout_file_single');
     const collageLayoutTargetInput = document.getElementById('editor_layout_file_collage');
 
+    const textPropertiesPanel = document.getElementById('text_properties_panel');
+    const textContentInput = document.getElementById('is_text_content');
+    const textFontSelect = document.getElementById('is_text_font');
+    const textSizeInput = document.getElementById('is_text_size');
+    const textColorInput = document.getElementById('is_text_color');
+
     function getAppBasePath() {
         const input = document.getElementById('app_base_path');
         return input && input.value ? input.value : '/';
@@ -87,6 +93,54 @@
             console.log('Unable to parse layout metadata', error);
             return fallback;
         }
+    }
+
+    const availableFonts = parseJsonInput(document.getElementById('available_fonts_json'), []);
+
+    function getFontOptions() {
+        return Array.isArray(availableFonts) ? availableFonts : [];
+    }
+
+    function getDefaultFontOrigin() {
+        const options = getFontOptions();
+        return options.length ? options[0].origin : '';
+    }
+
+    function fontFamilyForOrigin(origin) {
+        const found = getFontOptions().find((font) => font.origin === origin);
+        return found ? found.name : 'sans-serif';
+    }
+
+    const loadedFontFamilies = {};
+
+    function ensureFontLoaded(origin) {
+        const family = fontFamilyForOrigin(origin);
+        if (family === 'sans-serif' || !window.FontFaceSet || !document.fonts || loadedFontFamilies[family]) {
+            return Promise.resolve(family);
+        }
+
+        return document.fonts.load('16px "' + family + '"')
+            .then(function () {
+                loadedFontFamilies[family] = true;
+                return family;
+            })
+            .catch(function () {
+                return family;
+            });
+    }
+
+    function populateFontSelect() {
+        if (!textFontSelect) {
+            return;
+        }
+
+        textFontSelect.innerHTML = '';
+        getFontOptions().forEach(function (font) {
+            const option = document.createElement('option');
+            option.value = font.origin;
+            option.textContent = font.name;
+            textFontSelect.appendChild(option);
+        });
     }
 
     function getSavedLayoutFiles() {
@@ -344,25 +398,208 @@
         return group;
     }
 
-    function createTextObject(textValue, left, top, angle, fontSize, color, fontPath) {
-        const object = new fabric.Textbox(textValue || 'Your text', {
+    const textBoxPadding = 6;
+
+    function getGroupTextbox(group) {
+        return group._objects.find((child) => child instanceof fabric.Textbox);
+    }
+
+    function getGroupFrame(group) {
+        return group._objects.find((child) => child instanceof fabric.Rect);
+    }
+
+    // Keeps the frame, the inner textbox and the clip path in sync with the group's
+    // width/height/verticalAlign. Text is never scaled/stretched: the box just gets
+    // wider (text reflows) or taller (text stays the same size, but is repositioned
+    // top/middle/bottom within the available space).
+    function layoutTextGroup(group) {
+        const textbox = getGroupTextbox(group);
+        const frame = getGroupFrame(group);
+        if (!textbox || !frame) {
+            return;
+        }
+
+        const width = Math.max(40, group.width || 40);
+        const height = Math.max(20, group.height || 20);
+
+        frame.set({ width, height });
+        textbox.set({ width: Math.max(10, width - textBoxPadding * 2) });
+
+        const contentHeight = textbox.height || 0;
+        let textTop = textBoxPadding;
+        if (group.verticalAlign === 'middle') {
+            textTop = (height - contentHeight) / 2;
+        } else if (group.verticalAlign === 'bottom') {
+            textTop = height - contentHeight - textBoxPadding;
+        }
+
+        textbox.set({ left: textBoxPadding, top: textTop });
+
+        // No clipPath here on purpose: the PHP/GD renderer never clips overflowing text
+        // either, so leaving it unclipped keeps the preview honest about what will print.
+        group.set({ width, height });
+        group.setCoords();
+    }
+
+    function createTextResizeControls() {
+        const cu = fabric.controlsUtils;
+
+        const changeWidthAndHeight = cu.wrapWithFireEvent(
+            'resizing',
+            cu.wrapWithFixedAnchor(function (eventData, transform, x, y) {
+                const changedWidth = cu.changeObjectWidth(eventData, transform, x, y);
+                const changedHeight = cu.changeObjectHeight(eventData, transform, x, y);
+                return changedWidth || changedHeight;
+            })
+        );
+
+        return {
+            ml: new fabric.Control({ x: -0.5, y: 0, cursorStyleHandler: cu.scaleSkewCursorStyleHandler, actionHandler: cu.changeWidth, actionName: 'resizing' }),
+            mr: new fabric.Control({ x: 0.5, y: 0, cursorStyleHandler: cu.scaleSkewCursorStyleHandler, actionHandler: cu.changeWidth, actionName: 'resizing' }),
+            mt: new fabric.Control({ x: 0, y: -0.5, cursorStyleHandler: cu.scaleSkewCursorStyleHandler, actionHandler: cu.changeHeight, actionName: 'resizing' }),
+            mb: new fabric.Control({ x: 0, y: 0.5, cursorStyleHandler: cu.scaleSkewCursorStyleHandler, actionHandler: cu.changeHeight, actionName: 'resizing' }),
+            tl: new fabric.Control({ x: -0.5, y: -0.5, cursorStyleHandler: cu.scaleCursorStyleHandler, actionHandler: changeWidthAndHeight, actionName: 'resizing' }),
+            tr: new fabric.Control({ x: 0.5, y: -0.5, cursorStyleHandler: cu.scaleCursorStyleHandler, actionHandler: changeWidthAndHeight, actionName: 'resizing' }),
+            bl: new fabric.Control({ x: -0.5, y: 0.5, cursorStyleHandler: cu.scaleCursorStyleHandler, actionHandler: changeWidthAndHeight, actionName: 'resizing' }),
+            br: new fabric.Control({ x: 0.5, y: 0.5, cursorStyleHandler: cu.scaleCursorStyleHandler, actionHandler: changeWidthAndHeight, actionName: 'resizing' }),
+            mtr: new fabric.Control({
+                x: 0,
+                y: -0.5,
+                actionHandler: cu.rotationWithSnapping,
+                cursorStyleHandler: cu.rotationStyleHandler,
+                offsetY: -40,
+                withConnection: true,
+                actionName: 'rotate'
+            })
+        };
+    }
+
+    function setTextControls(group) {
+        group.set({
+            lockScalingFlip: true,
+            borderColor: '#7c3aed',
+            cornerColor: '#6d28d9'
+        });
+        group.controls = createTextResizeControls();
+        group.setControlsVisibility({ mt: true, mb: true, ml: true, mr: true, mtr: true, tl: true, tr: true, bl: true, br: true });
+    }
+
+    function handleTextResizing(e) {
+        const target = e.target;
+        if (!target || target.objectType !== 'text') {
+            return;
+        }
+
+        layoutTextGroup(target);
+        canvas.requestRenderAll();
+    }
+
+    function createTextObject(textValue, left, top, angle, fontSize, color, fontPath, width, boxHeight, textAlign, verticalAlign) {
+        const safeFontSize = numberOr(fontSize, 56);
+        const safeWidth = Math.max(40, numberOr(width, 360));
+        const safeHeight = Math.max(20, numberOr(boxHeight, Math.round(safeFontSize * 1.8)));
+        const safeFontPath = fontPath || getDefaultFontOrigin();
+
+        const frame = new fabric.Rect({
+            width: safeWidth,
+            height: safeHeight,
+            fill: 'transparent',
+            stroke: '#7c3aed',
+            strokeDashArray: [8, 6],
+            strokeWidth: 2,
+            originX: 'left',
+            originY: 'top',
+            selectable: false,
+            evented: false
+        });
+
+        const textbox = new fabric.Textbox(textValue || 'Your text', {
+            originX: 'left',
+            originY: 'top',
+            width: Math.max(10, safeWidth - textBoxPadding * 2),
+            fontSize: safeFontSize,
+            fill: color || '#111111',
+            fontFamily: fontFamilyForOrigin(safeFontPath),
+            textAlign: textAlign || 'left',
+            selectable: false,
+            evented: false
+        });
+
+        const group = new fabric.Group([frame, textbox], {
             objectType: 'text',
+            fontPath: safeFontPath,
+            verticalAlign: verticalAlign || 'top',
+            layoutManager: new fabric.LayoutManager(new fabric.FixedLayout()),
+            width: safeWidth,
+            height: safeHeight,
             originX: 'left',
             originY: 'top',
             left: numberOr(left, 100),
             top: numberOr(top, 100),
-            angle: numberOr(angle, 0),
-            width: 360,
-            fontSize: numberOr(fontSize, 56),
-            fill: color || '#111111',
-            fontFamily: 'sans-serif',
-            fontPath: fontPath || '',
-            borderColor: '#f97316',
-            cornerColor: '#ea580c'
+            angle: numberOr(angle, 0)
         });
 
-        setCornerOnlyControls(object);
-        return object;
+        layoutTextGroup(group);
+        setTextControls(group);
+        ensureFontLoaded(safeFontPath).then(function () {
+            canvas.requestRenderAll();
+        });
+
+        return group;
+    }
+
+    function getActiveTextGroup() {
+        const active = canvas.getActiveObject();
+        return active && active.objectType === 'text' ? active : null;
+    }
+
+    function updateAlignButtonsState(textAlign, verticalAlign) {
+        [['is_text_align_left', 'left'], ['is_text_align_center', 'center'], ['is_text_align_right', 'right']].forEach(function (pair) {
+            const button = document.getElementById(pair[0]);
+            if (!button) {
+                return;
+            }
+            button.classList.toggle('bg-violet-600', textAlign === pair[1]);
+            button.classList.toggle('text-white', textAlign === pair[1]);
+        });
+
+        [['is_text_valign_top', 'top'], ['is_text_valign_middle', 'middle'], ['is_text_valign_bottom', 'bottom']].forEach(function (pair) {
+            const button = document.getElementById(pair[0]);
+            if (!button) {
+                return;
+            }
+            button.classList.toggle('bg-violet-600', verticalAlign === pair[1]);
+            button.classList.toggle('text-white', verticalAlign === pair[1]);
+        });
+    }
+
+    function updateTextPanel() {
+        const group = getActiveTextGroup();
+        if (!textPropertiesPanel) {
+            return;
+        }
+
+        if (!group) {
+            textPropertiesPanel.classList.add('hidden');
+            return;
+        }
+
+        const textbox = getGroupTextbox(group);
+        textPropertiesPanel.classList.remove('hidden');
+
+        if (textContentInput) {
+            textContentInput.value = textbox.text || '';
+        }
+        if (textFontSelect) {
+            textFontSelect.value = group.fontPath || getDefaultFontOrigin();
+        }
+        if (textSizeInput) {
+            textSizeInput.value = Math.round(textbox.fontSize);
+        }
+        if (textColorInput) {
+            textColorInput.value = textbox.fill || '#111111';
+        }
+        updateAlignButtonsState(textbox.textAlign || 'left', group.verticalAlign || 'top');
     }
 
     function createPictureObject(path, left, top, width, height, angle, callback) {
@@ -454,7 +691,7 @@
             return;
         }
 
-        const snapshot = JSON.stringify(canvas.toObject(['objectType', 'placeholderIndex', 'fontPath', 'sourcePath', 'lockAspectRatio']));
+        const snapshot = JSON.stringify(canvas.toObject(['objectType', 'placeholderIndex', 'fontPath', 'verticalAlign', 'sourcePath', 'lockAspectRatio']));
         if (history[historyIndex] === snapshot) {
             return;
         }
@@ -479,12 +716,20 @@
 
         restoringState = true;
         canvas.loadFromJSON(history[index]).then(function () {
-            canvas.getObjects().forEach(setCornerOnlyControls);
+            canvas.getObjects().forEach(function (obj) {
+                if (obj.objectType === 'text') {
+                    setTextControls(obj);
+                    layoutTextGroup(obj);
+                } else {
+                    setCornerOnlyControls(obj);
+                }
+            });
             canvas.requestRenderAll();
             restoringState = false;
             historyIndex = index;
             updateHistoryButtons();
             recomputePlaceholderCounter();
+            updateTextPanel();
         });
     }
 
@@ -532,6 +777,7 @@
         }
 
         if (obj.objectType === 'text') {
+            const textbox = getGroupTextbox(obj);
             return {
                 type: 'text',
                 x: Math.round(obj.left || 0),
@@ -540,10 +786,12 @@
                 height,
                 rotation: Math.round(obj.angle || 0),
                 zIndex,
-                text: obj.text || '',
+                text: (textbox && textbox.text) || '',
                 fontPath: obj.fontPath || '',
-                fontSize: Math.round(obj.fontSize || 56),
-                color: obj.fill || '#111111'
+                fontSize: Math.round((textbox && textbox.fontSize) || 56),
+                color: (textbox && textbox.fill) || '#111111',
+                textAlign: (textbox && textbox.textAlign) || 'left',
+                verticalAlign: obj.verticalAlign || 'top'
             };
         }
 
@@ -632,10 +880,7 @@
             }
 
             if (item.type === 'text') {
-                const text = createTextObject(item.text, item.x, item.y, item.rotation, item.fontSize, item.color, item.fontPath);
-                if (item.width && item.width > 0) {
-                    text.set({ width: item.width });
-                }
+                const text = createTextObject(item.text, item.x, item.y, item.rotation, item.fontSize, item.color, item.fontPath, item.width, item.height, item.textAlign, item.verticalAlign);
                 canvas.add(text);
                 resolve();
                 return;
@@ -1040,7 +1285,11 @@
         canvas.on('object:modified', saveHistory);
         canvas.on('object:moving', handleObjectMoving);
         canvas.on('object:scaling', handleObjectScaling);
+        canvas.on('object:resizing', handleTextResizing);
         canvas.on('object:removed', saveHistory);
+        canvas.on('selection:created', updateTextPanel);
+        canvas.on('selection:updated', updateTextPanel);
+        canvas.on('selection:cleared', updateTextPanel);
 
         const addPlaceholderButton = document.getElementById('is_add_placeholder');
         if (addPlaceholderButton) {
@@ -1071,6 +1320,98 @@
         if (redoButton) {
             redoButton.addEventListener('click', redo);
         }
+
+        if (textContentInput) {
+            textContentInput.addEventListener('input', function () {
+                const group = getActiveTextGroup();
+                if (!group) {
+                    return;
+                }
+                getGroupTextbox(group).set('text', textContentInput.value);
+                layoutTextGroup(group);
+                canvas.requestRenderAll();
+            });
+            textContentInput.addEventListener('change', saveHistory);
+        }
+
+        if (textFontSelect) {
+            textFontSelect.addEventListener('change', function () {
+                const group = getActiveTextGroup();
+                if (!group) {
+                    return;
+                }
+                const textbox = getGroupTextbox(group);
+                group.set('fontPath', textFontSelect.value);
+                textbox.set('fontFamily', fontFamilyForOrigin(textFontSelect.value));
+                ensureFontLoaded(textFontSelect.value).then(function () {
+                    canvas.requestRenderAll();
+                });
+                canvas.requestRenderAll();
+                saveHistory();
+            });
+        }
+
+        if (textSizeInput) {
+            textSizeInput.addEventListener('change', function () {
+                const group = getActiveTextGroup();
+                if (!group) {
+                    return;
+                }
+                const textbox = getGroupTextbox(group);
+                textbox.set('fontSize', clampNumber(textSizeInput.value, 1, textbox.fontSize));
+                layoutTextGroup(group);
+                canvas.requestRenderAll();
+                saveHistory();
+            });
+        }
+
+        if (textColorInput) {
+            textColorInput.addEventListener('input', function () {
+                const group = getActiveTextGroup();
+                if (!group) {
+                    return;
+                }
+                getGroupTextbox(group).set('fill', textColorInput.value);
+                canvas.requestRenderAll();
+            });
+            textColorInput.addEventListener('change', saveHistory);
+        }
+
+        ['left', 'center', 'right'].forEach(function (align) {
+            const button = document.getElementById('is_text_align_' + align);
+            if (!button) {
+                return;
+            }
+            button.addEventListener('click', function () {
+                const group = getActiveTextGroup();
+                if (!group) {
+                    return;
+                }
+                const textbox = getGroupTextbox(group);
+                textbox.set('textAlign', align);
+                updateAlignButtonsState(align, group.verticalAlign);
+                canvas.requestRenderAll();
+                saveHistory();
+            });
+        });
+
+        ['top', 'middle', 'bottom'].forEach(function (valign) {
+            const button = document.getElementById('is_text_valign_' + valign);
+            if (!button) {
+                return;
+            }
+            button.addEventListener('click', function () {
+                const group = getActiveTextGroup();
+                if (!group) {
+                    return;
+                }
+                group.set('verticalAlign', valign);
+                layoutTextGroup(group);
+                updateAlignButtonsState(getGroupTextbox(group).textAlign, valign);
+                canvas.requestRenderAll();
+                saveHistory();
+            });
+        });
 
         [widthInput, heightInput].forEach(function (input) {
             if (input) {
@@ -1141,6 +1482,8 @@
     }
 
     function initialize() {
+        populateFontSelect();
+        updateTextPanel();
         updateCanvasDimensions();
         applyBackground();
         refreshSavedLayoutsSelect();

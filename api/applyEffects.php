@@ -355,10 +355,14 @@ try {
                             'text' => isset($object['text']) ? (string) $object['text'] : '',
                             'x' => isset($object['x']) ? (int) $object['x'] : 0,
                             'y' => isset($object['y']) ? (int) $object['y'] : 0,
+                            'width' => isset($object['width']) ? (int) $object['width'] : 0,
+                            'height' => isset($object['height']) ? (int) $object['height'] : 0,
                             'rotation' => isset($object['rotation']) ? (int) $object['rotation'] : 0,
                             'fontPath' => !empty($object['fontPath']) ? (string) $object['fontPath'] : $config['textonpicture']['font'],
                             'fontSize' => isset($object['fontSize']) ? (int) $object['fontSize'] : (int) $config['textonpicture']['font_size'],
                             'fontColor' => isset($object['color']) ? (string) $object['color'] : $config['textonpicture']['font_color'],
+                            'textAlign' => isset($object['textAlign']) ? (string) $object['textAlign'] : 'left',
+                            'verticalAlign' => isset($object['verticalAlign']) ? (string) $object['verticalAlign'] : 'top',
                         ];
                     }
                 }

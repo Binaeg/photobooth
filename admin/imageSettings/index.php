@@ -5,6 +5,7 @@ use Photobooth\Service\ConfigurationService;
 use Photobooth\Service\ApplicationService;
 use Photobooth\Service\LanguageService;
 use Photobooth\Service\AssetService;
+use Photobooth\Utility\FontUtility;
 use Photobooth\Utility\PathUtility;
 
 if (!(
@@ -248,7 +249,38 @@ $singleLayoutFilesJson = htmlspecialchars(json_encode($singleLayoutFiles, JSON_U
 $collageLayoutFilesJson = htmlspecialchars(json_encode($collageLayoutFiles, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES);
 $singleLayoutMapJson = htmlspecialchars(json_encode($singleLayoutMap, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
 $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
+
+// Build the list of installed TTF fonts plus matching @font-face declarations, so the
+// canvas preview renders text with the exact same font file used by the PHP/GD renderer.
+$fontPaths = [
+    PathUtility::getAbsolutePath('resources/fonts'),
+    PathUtility::getAbsolutePath('private/fonts'),
+];
+
+$availableFonts = [];
+$fontFaceStyles = '';
+foreach ($fontPaths as $fontDir) {
+    try {
+        $files = FontUtility::getFontsFromPath($fontDir, false);
+    } catch (\Exception $e) {
+        continue;
+    }
+
+    foreach ($files as $name => $absoluteFontPath) {
+        $origin = ltrim(str_replace(PathUtility::getRootPath(), '', $absoluteFontPath), '/');
+        $publicUrl = PathUtility::getPublicPath($origin);
+        $availableFonts[] = [
+            'name' => $name,
+            'origin' => $origin,
+            'url' => $publicUrl,
+        ];
+        $fontFaceStyles .= '@font-face { font-family: "' . addslashes($name) . '"; src: url(' . $publicUrl . ') format("truetype"); }' . "\n";
+    }
+}
+
+$availableFontsJson = htmlspecialchars(json_encode($availableFonts, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES);
 ?>
+<style><?= $fontFaceStyles ?></style>
 
 <div class="w-full h-screen bg-brand-2 px-3 md:px-6 py-6 md:py-12 overflow-x-hidden overflow-y-auto">
     <div class="w-full flex items-center justify-center flex-col">
@@ -317,6 +349,43 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
                     </div>
                 </div>
 
+                <div id="text_properties_panel" class="hidden w-full p-3 rounded-md bg-violet-50 border border-violet-200 flex flex-wrap items-end gap-4">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-violet-600 w-full">Text bearbeiten</span>
+                    <div class="flex flex-col gap-1 w-full md:w-64">
+                        <label class="text-xs font-semibold text-slate-600" for="is_text_content">Text</label>
+                        <textarea id="is_text_content" rows="2" class="rounded border border-slate-300 p-2"></textarea>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-600" for="is_text_font">Schriftart</label>
+                        <select id="is_text_font" class="rounded border border-slate-300 p-2 min-w-40"></select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-600" for="is_text_size">Größe</label>
+                        <input id="is_text_size" type="number" min="1" class="w-20 rounded border border-slate-300 p-2" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-slate-600" for="is_text_color">Farbe</label>
+                        <input id="is_text_color" type="color" class="w-12 h-10 rounded border border-slate-300 p-1" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-semibold text-slate-600">Ausrichtung</span>
+                        <div class="flex items-center gap-1">
+                            <button id="is_text_align_left" type="button" title="Left" class="w-9 h-9 rounded bg-white border border-slate-300"><i class="fa fa-align-left"></i></button>
+                            <button id="is_text_align_center" type="button" title="Center" class="w-9 h-9 rounded bg-white border border-slate-300"><i class="fa fa-align-center"></i></button>
+                            <button id="is_text_align_right" type="button" title="Right" class="w-9 h-9 rounded bg-white border border-slate-300"><i class="fa fa-align-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-semibold text-slate-600">Vertikal</span>
+                        <div class="flex items-center gap-1">
+                            <button id="is_text_valign_top" type="button" title="Top" class="w-9 h-9 rounded bg-white border border-slate-300"><i class="fa fa-arrow-up-to-line"></i></button>
+                            <button id="is_text_valign_middle" type="button" title="Middle" class="w-9 h-9 rounded bg-white border border-slate-300"><i class="fa fa-arrows-up-down"></i></button>
+                            <button id="is_text_valign_bottom" type="button" title="Bottom" class="w-9 h-9 rounded bg-white border border-slate-300"><i class="fa fa-arrow-down-to-line"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <input id="available_fonts_json" type="hidden" value="<?= $availableFontsJson ?>" />
                 <input id="image_settings_width" type="hidden" min="100" value="1500" />
                 <input id="image_settings_height" type="hidden" min="100" value="1000" />
                 <input id="image_settings_background_color" type="hidden" value="#ffffff" />
@@ -324,7 +393,7 @@ $collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNE
                 <input id="image_settings_background_fit" type="hidden" value="cover" />
 
                 <div id="image_settings_editor" class="w-full h-full min-h-[72vh] flex flex-col gap-2">
-                    <div class="text-xs text-slate-700">Resize works only from corners. Rotation is enabled for every object.</div>
+                    <div class="text-xs text-slate-700">Placeholders and pictures resize from corners, keeping their aspect ratio. Text boxes resize freely from any handle. Select a text box to edit its content, font, size, color and alignment below. Rotation is enabled for every object.</div>
                     <div id="image_settings_canvas_viewport" class="w-full h-[72vh] overflow-hidden border-2 border-slate-400 rounded bg-white p-2 flex items-center justify-center">
                         <canvas id="image_settings_canvas" class="shadow-xl"></canvas>
                     </div>

@@ -450,10 +450,14 @@ class Collage
                             'text' => isset($textObject['text']) && is_string($textObject['text']) ? $textObject['text'] : '',
                             'x' => isset($textObject['x']) ? (int) round((float) $textObject['x']) : 0,
                             'y' => isset($textObject['y']) ? (int) round((float) $textObject['y']) : 0,
+                            'width' => isset($textObject['width']) ? (int) round((float) $textObject['width']) : 0,
+                            'height' => isset($textObject['height']) ? (int) round((float) $textObject['height']) : 0,
                             'rotation' => isset($textObject['rotation']) ? (int) round((float) $textObject['rotation']) : 0,
                             'fontPath' => isset($textObject['fontPath']) && is_string($textObject['fontPath']) && $textObject['fontPath'] !== '' ? $textObject['fontPath'] : $c->textOnCollageFont,
                             'fontSize' => isset($textObject['fontSize']) ? (int) round((float) $textObject['fontSize']) : $c->textOnCollageFontSize,
                             'fontColor' => isset($textObject['color']) && is_string($textObject['color']) ? $textObject['color'] : $c->textOnCollageFontColor,
+                            'textAlign' => isset($textObject['textAlign']) && is_string($textObject['textAlign']) ? $textObject['textAlign'] : 'left',
+                            'verticalAlign' => isset($textObject['verticalAlign']) && is_string($textObject['verticalAlign']) ? $textObject['verticalAlign'] : 'top',
                         ];
                     }
 
