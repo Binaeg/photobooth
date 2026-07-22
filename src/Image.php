@@ -1034,7 +1034,9 @@ class Image
                 $targetY = isset($layer['y']) ? (int) $layer['y'] : 0;
                 $targetWidth = max(1, isset($layer['width']) ? (int) $layer['width'] : 1);
                 $targetHeight = max(1, isset($layer['height']) ? (int) $layer['height'] : 1);
-                $rotation = isset($layer['rotation']) ? (int) $layer['rotation'] : 0;
+                // Editor rotation angles are clockwise, while GD's imagerotate() rotates
+                // counter-clockwise for positive degrees, so the sign must be flipped here.
+                $rotation = isset($layer['rotation']) ? -(int) $layer['rotation'] : 0;
 
                 $layerResource = $this->createFromImage($path);
                 if (!$layerResource instanceof \GdImage) {
@@ -1100,7 +1102,9 @@ class Image
             $dY = intval($this->addPictureY);
             $width = intval($this->addPictureWidth);
             $height = intval($this->addPictureHeight);
-            $degrees = intval($this->addPictureRotation);
+            // Editor rotation angles are clockwise, while GD's imagerotate() rotates
+            // counter-clockwise for positive degrees, so the sign must be flipped here.
+            $degrees = -intval($this->addPictureRotation);
 
             if ($width <= 0 || $height <= 0) {
                 throw new \Exception('Invalid image dimensions or maximum dimensions.');

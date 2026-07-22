@@ -1440,9 +1440,7 @@
         }
 
         if (savedLayoutsSelect) {
-            savedLayoutsSelect.addEventListener('change', function () {
-                setSelectedLayoutFileName(savedLayoutsSelect.value);
-            });
+            savedLayoutsSelect.addEventListener('change', openSelectedLayout);
         }
 
         const openLayoutButton = document.getElementById('is_open_layout');
@@ -1481,6 +1479,13 @@
                 redo();
             }
             if (event.key === 'Delete' || event.key === 'Backspace') {
+                const targetTag = event.target && event.target.tagName;
+                const isTypingInField = targetTag === 'INPUT' || targetTag === 'TEXTAREA' || (event.target && event.target.isContentEditable);
+                const activeObject = canvas.getActiveObject();
+                const isEditingText = activeObject && activeObject.isEditing;
+                if (isTypingInField || isEditingText) {
+                    return;
+                }
                 removeSelectedObject();
             }
         });
