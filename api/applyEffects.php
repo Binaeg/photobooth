@@ -321,7 +321,9 @@ try {
                         $slotH = max(1, isset($object['height']) ? (int) $object['height'] : imagesy($imageResource));
                         $slotX = isset($object['x']) ? (int) $object['x'] : 0;
                         $slotY = isset($object['y']) ? (int) $object['y'] : 0;
-                        $slotRotation = isset($object['rotation']) ? (int) $object['rotation'] : 0;
+                        // Editor rotation angles are clockwise, while GD's imagerotate() rotates
+                        // counter-clockwise for positive degrees, so the sign must be flipped here.
+                        $slotRotation = isset($object['rotation']) ? -(int) $object['rotation'] : 0;
 
                         $slotImage = $imageHandler->resizeCropImage($imageResource, $slotW, $slotH);
                         if ($slotImage instanceof \GdImage && $slotRotation !== 0) {
