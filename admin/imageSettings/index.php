@@ -402,7 +402,7 @@ $availableFontsJson = htmlspecialchars(json_encode($availableFonts, JSON_UNESCAP
                 <input id="image_settings_background_fit" type="hidden" value="cover" />
 
                 <div id="image_settings_editor" class="w-full h-full min-h-[72vh] flex flex-col gap-2">
-                    <div class="text-xs text-slate-700">Placeholders and pictures resize from corners, keeping their aspect ratio. Text boxes resize freely from any handle. Select a text box to edit its content, font, size, color and alignment below. Rotation is enabled for every object.</div>
+                    <div class="text-xs text-slate-700">Placeholders resize from corners, keeping their aspect ratio. Text boxes and pictures resize freely from any handle (hold Shift on a picture corner to keep its aspect ratio). Select a text box to edit its content, font, size, color and alignment below. Rotation is enabled for every object.</div>
                     <div id="image_settings_canvas_viewport" class="w-full h-[72vh] overflow-hidden border-2 border-slate-400 rounded bg-white p-2 flex items-center justify-center">
                         <canvas id="image_settings_canvas" class="shadow-xl"></canvas>
                     </div>

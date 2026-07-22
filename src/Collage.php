@@ -423,6 +423,7 @@ class Collage
                     }
 
                     $layoutConfigArray = [];
+                    $placeholderZIndexes = [];
                     foreach ($placeholderObjects as $placeholderObject) {
                         $layoutConfigArray[] = [
                             isset($placeholderObject['x']) ? (int) round((float) $placeholderObject['x']) : 0,
@@ -432,6 +433,7 @@ class Collage
                             isset($placeholderObject['rotation']) ? (int) round((float) $placeholderObject['rotation']) : 0,
                             isset($placeholderObject['frameEnabled']) ? (bool) $placeholderObject['frameEnabled'] : false,
                         ];
+                        $placeholderZIndexes[] = isset($placeholderObject['zIndex']) ? (int) $placeholderObject['zIndex'] : 0;
                     }
 
                     $textObjects = array_values(array_filter($objects, static function ($object): bool {
@@ -458,6 +460,7 @@ class Collage
                             'fontColor' => isset($textObject['color']) && is_string($textObject['color']) ? $textObject['color'] : $c->textOnCollageFontColor,
                             'textAlign' => isset($textObject['textAlign']) && is_string($textObject['textAlign']) ? $textObject['textAlign'] : 'left',
                             'verticalAlign' => isset($textObject['verticalAlign']) && is_string($textObject['verticalAlign']) ? $textObject['verticalAlign'] : 'top',
+                            'zIndex' => isset($textObject['zIndex']) ? (int) $textObject['zIndex'] : 0,
                         ];
                     }
 
@@ -480,6 +483,7 @@ class Collage
                             'width' => isset($pictureObject['width']) ? (int) round((float) $pictureObject['width']) : 1,
                             'height' => isset($pictureObject['height']) ? (int) round((float) $pictureObject['height']) : 1,
                             'rotation' => isset($pictureObject['rotation']) ? (int) round((float) $pictureObject['rotation']) : 0,
+                            'zIndex' => isset($pictureObject['zIndex']) ? (int) $pictureObject['zIndex'] : 0,
                         ];
                     }
 
@@ -707,22 +711,90 @@ class Collage
             throw new \Exception('Failed to get picture options.');
         }
 
-        foreach ($pictureOptions as $i => $singlePictureOptions) {
-            $tmpImg = $imageHandler->createFromImage($editImages[$i]);
-            if (!$tmpImg instanceof \GdImage) {
-                throw new \Exception('Failed to create tmp image resource.');
+        if ($isV2LayoutFromJson) {
+            // Draw placeholders, static pictures and text in a single pass ordered by the
+            // editor's zIndex, so overlapping objects composite in the order the user arranged
+            // them instead of always drawing photos, then pictures, then text.
+            $drawOps = [];
+            foreach ($pictureOptions as $i => $singlePictureOptions) {
+                $drawOps[] = [
+                    'kind' => 'placeholder',
+                    'zIndex' => $placeholderZIndexes[$i] ?? $i,
+                    'order' => count($drawOps),
+                    'options' => $singlePictureOptions,
+                    'editImage' => $editImages[$i],
+                ];
             }
-            $imageHandler->setAddPictureOptions(
-                (int)$singlePictureOptions[0],
-                (int)$singlePictureOptions[1],
-                (int)$singlePictureOptions[2],
-                (int)$singlePictureOptions[3],
-                (int)$singlePictureOptions[4],
-                isset($singlePictureOptions[5]) ? (bool)$singlePictureOptions[5] : null
-            );
+            foreach ($v2ImageLayers as $layer) {
+                $drawOps[] = [
+                    'kind' => 'picture',
+                    'zIndex' => $layer['zIndex'] ?? 0,
+                    'order' => count($drawOps),
+                    'layer' => $layer,
+                ];
+            }
+            if ($c->textOnCollageEnabled === 'enabled') {
+                $imageHandler->fontPath = $c->textOnCollageFont;
+                foreach ($v2TextLayers as $layer) {
+                    $drawOps[] = [
+                        'kind' => 'text',
+                        'zIndex' => $layer['zIndex'] ?? 0,
+                        'order' => count($drawOps),
+                        'layer' => $layer,
+                    ];
+                }
+            }
 
-            $imageHandler->addPicture($tmpImg, $my_collage);
-            unset($tmpImg);
+            usort($drawOps, static function (array $left, array $right): int {
+                return $left['zIndex'] <=> $right['zIndex'] ?: $left['order'] <=> $right['order'];
+            });
+
+            foreach ($drawOps as $op) {
+                if ($op['kind'] === 'placeholder') {
+                    $tmpImg = $imageHandler->createFromImage($op['editImage']);
+                    if (!$tmpImg instanceof \GdImage) {
+                        throw new \Exception('Failed to create tmp image resource.');
+                    }
+                    $imageHandler->setAddPictureOptions(
+                        (int) $op['options'][0],
+                        (int) $op['options'][1],
+                        (int) $op['options'][2],
+                        (int) $op['options'][3],
+                        (int) $op['options'][4],
+                        isset($op['options'][5]) ? (bool) $op['options'][5] : null
+                    );
+                    $imageHandler->addPicture($tmpImg, $my_collage);
+                    unset($tmpImg);
+                } elseif ($op['kind'] === 'picture') {
+                    $my_collage = $imageHandler->applyImageLayers($my_collage, [$op['layer']]);
+                    if (!$my_collage instanceof \GdImage) {
+                        throw new \Exception('Failed to apply v2 image layers to collage resource.');
+                    }
+                } elseif ($op['kind'] === 'text') {
+                    $my_collage = $imageHandler->applyTextLayers($my_collage, [$op['layer']]);
+                    if (!$my_collage instanceof \GdImage) {
+                        throw new \Exception('Failed to apply v2 text layers to collage resource.');
+                    }
+                }
+            }
+        } else {
+            foreach ($pictureOptions as $i => $singlePictureOptions) {
+                $tmpImg = $imageHandler->createFromImage($editImages[$i]);
+                if (!$tmpImg instanceof \GdImage) {
+                    throw new \Exception('Failed to create tmp image resource.');
+                }
+                $imageHandler->setAddPictureOptions(
+                    (int)$singlePictureOptions[0],
+                    (int)$singlePictureOptions[1],
+                    (int)$singlePictureOptions[2],
+                    (int)$singlePictureOptions[3],
+                    (int)$singlePictureOptions[4],
+                    isset($singlePictureOptions[5]) ? (bool)$singlePictureOptions[5] : null
+                );
+
+                $imageHandler->addPicture($tmpImg, $my_collage);
+                unset($tmpImg);
+            }
         }
 
         if (self::$drawDashedLine == true) {
@@ -743,35 +815,20 @@ class Collage
             }
         }
 
-        if (!empty($v2ImageLayers)) {
-            $my_collage = $imageHandler->applyImageLayers($my_collage, $v2ImageLayers);
+        if (!$isV2LayoutFromJson && $c->textOnCollageEnabled === 'enabled') {
+            $imageHandler->fontSize = $c->textOnCollageFontSize;
+            $imageHandler->fontRotation = $c->textOnCollageRotation;
+            $imageHandler->fontLocationX = $c->textOnCollageLocationX;
+            $imageHandler->fontLocationY = $c->textOnCollageLocationY;
+            $imageHandler->fontColor = $c->textOnCollageFontColor;
+            $imageHandler->fontPath = $c->textOnCollageFont;
+            $imageHandler->textLine1 = $c->textOnCollageLine1;
+            $imageHandler->textLine2 = $c->textOnCollageLine2;
+            $imageHandler->textLine3 = $c->textOnCollageLine3;
+            $imageHandler->textLineSpacing = $c->textOnCollageLinespace;
+            $my_collage = $imageHandler->applyText($my_collage);
             if (!$my_collage instanceof \GdImage) {
-                throw new \Exception('Failed to apply v2 image layers to collage resource.');
-            }
-        }
-
-        if ($c->textOnCollageEnabled === 'enabled') {
-            if (!empty($v2TextLayers)) {
-                $imageHandler->fontPath = $c->textOnCollageFont;
-                $my_collage = $imageHandler->applyTextLayers($my_collage, $v2TextLayers);
-                if (!$my_collage instanceof \GdImage) {
-                    throw new \Exception('Failed to apply v2 text layers to collage resource.');
-                }
-            } else {
-                $imageHandler->fontSize = $c->textOnCollageFontSize;
-                $imageHandler->fontRotation = $c->textOnCollageRotation;
-                $imageHandler->fontLocationX = $c->textOnCollageLocationX;
-                $imageHandler->fontLocationY = $c->textOnCollageLocationY;
-                $imageHandler->fontColor = $c->textOnCollageFontColor;
-                $imageHandler->fontPath = $c->textOnCollageFont;
-                $imageHandler->textLine1 = $c->textOnCollageLine1;
-                $imageHandler->textLine2 = $c->textOnCollageLine2;
-                $imageHandler->textLine3 = $c->textOnCollageLine3;
-                $imageHandler->textLineSpacing = $c->textOnCollageLinespace;
-                $my_collage = $imageHandler->applyText($my_collage);
-                if (!$my_collage instanceof \GdImage) {
-                    throw new \Exception('Failed to apply text to collage resource.');
-                }
+                throw new \Exception('Failed to apply text to collage resource.');
             }
         }
 

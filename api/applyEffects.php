@@ -309,8 +309,8 @@ try {
                     return $leftZ <=> $rightZ;
                 });
 
-                $singleTextLayers = [];
-                $singlePictureLayers = [];
+                // Draw placeholder, pictures and text in a single pass ordered by the editor's
+                // zIndex, so overlapping objects composite in the order the user arranged them.
                 foreach ($objects as $object) {
                     if (!is_array($object) || !isset($object['type'])) {
                         continue;
@@ -340,18 +340,18 @@ try {
                     }
 
                     if ($object['type'] === 'picture') {
-                        $singlePictureLayers[] = [
+                        $templateCanvas = $imageHandler->applyImageLayers($templateCanvas, [[
                             'path' => isset($object['path']) ? (string) $object['path'] : '',
                             'x' => isset($object['x']) ? (int) $object['x'] : 0,
                             'y' => isset($object['y']) ? (int) $object['y'] : 0,
                             'width' => isset($object['width']) ? (int) $object['width'] : 1,
                             'height' => isset($object['height']) ? (int) $object['height'] : 1,
                             'rotation' => isset($object['rotation']) ? (int) $object['rotation'] : 0,
-                        ];
+                        ]]);
                     }
 
                     if ($object['type'] === 'text') {
-                        $singleTextLayers[] = [
+                        $templateCanvas = $imageHandler->applyTextLayers($templateCanvas, [[
                             'text' => isset($object['text']) ? (string) $object['text'] : '',
                             'x' => isset($object['x']) ? (int) $object['x'] : 0,
                             'y' => isset($object['y']) ? (int) $object['y'] : 0,
@@ -363,15 +363,8 @@ try {
                             'fontColor' => isset($object['color']) ? (string) $object['color'] : $config['textonpicture']['font_color'],
                             'textAlign' => isset($object['textAlign']) ? (string) $object['textAlign'] : 'left',
                             'verticalAlign' => isset($object['verticalAlign']) ? (string) $object['verticalAlign'] : 'top',
-                        ];
+                        ]]);
                     }
-                }
-
-                if (!empty($singlePictureLayers)) {
-                    $templateCanvas = $imageHandler->applyImageLayers($templateCanvas, $singlePictureLayers);
-                }
-                if (!empty($singleTextLayers)) {
-                    $templateCanvas = $imageHandler->applyTextLayers($templateCanvas, $singleTextLayers);
                 }
 
                 $imageResource = $templateCanvas;

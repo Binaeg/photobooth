@@ -16,7 +16,8 @@
 
     const canvas = new fabric.Canvas('image_settings_canvas', {
         preserveObjectStacking: true,
-        selection: true
+        selection: true,
+        uniformScaling: false
     });
 
     const modeSelect = document.getElementById('image_settings_mode');
@@ -227,6 +228,26 @@
             mb: false,
             ml: false,
             mr: false,
+            mtr: true,
+            tl: true,
+            tr: true,
+            bl: true,
+            br: true
+        });
+
+        object.set({
+            cornerStyle: 'circle',
+            transparentCorners: false,
+            padding: 0
+        });
+    }
+
+    function setPictureControls(object) {
+        object.setControlsVisibility({
+            mt: true,
+            mb: true,
+            ml: true,
+            mr: true,
             mtr: true,
             tl: true,
             tr: true,
@@ -625,16 +646,16 @@
                     cornerColor: '#047857'
                 });
 
-                const targetWidth = Math.max(80, numberOr(width, 300));
-                const targetHeight = Math.max(80, numberOr(height, 220));
-                const nativeWidth = img.width || targetWidth;
-                const nativeHeight = img.height || targetHeight;
+                const nativeWidth = img.width || 300;
+                const nativeHeight = img.height || 220;
+                const targetWidth = Math.max(20, numberOr(width, nativeWidth));
+                const targetHeight = Math.max(20, numberOr(height, nativeHeight));
                 img.set({
                     scaleX: targetWidth / nativeWidth,
                     scaleY: targetHeight / nativeHeight
                 });
 
-                setCornerOnlyControls(img);
+                setPictureControls(img);
                 callback(img);
             })
             .catch(function (error) {
@@ -675,7 +696,7 @@
             return;
         }
 
-        createPictureObject(source, 140, 140, 300, 220, 0, function (img) {
+        createPictureObject(source, 140, 140, undefined, undefined, 0, function (img) {
             canvas.add(img);
             canvas.setActiveObject(img);
             canvas.requestRenderAll();
@@ -836,6 +857,8 @@
                 if (obj.objectType === 'text') {
                     setTextControls(obj);
                     layoutTextGroup(obj);
+                } else if (obj.objectType === 'picture') {
+                    setPictureControls(obj);
                 } else {
                     setCornerOnlyControls(obj);
                 }
