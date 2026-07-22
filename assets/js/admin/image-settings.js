@@ -422,18 +422,25 @@
         const width = Math.max(40, group.width || 40);
         const height = Math.max(20, group.height || 20);
 
-        frame.set({ width, height });
+        // Children live in the group's local, center-origin coordinate space, so the
+        // box's own top-left corner sits at (-width/2, -height/2) there. Every resize
+        // has to re-anchor both children to that corner, otherwise they drift away
+        // from the group's own (symmetric) selection border as width/height change.
+        const localLeft = -width / 2;
+        const localTop = -height / 2;
+
+        frame.set({ left: localLeft, top: localTop, width, height });
         textbox.set({ width: Math.max(10, width - textBoxPadding * 2) });
 
         const contentHeight = textbox.height || 0;
-        let textTop = textBoxPadding;
+        let textTop = localTop + textBoxPadding;
         if (group.verticalAlign === 'middle') {
-            textTop = (height - contentHeight) / 2;
+            textTop = localTop + (height - contentHeight) / 2;
         } else if (group.verticalAlign === 'bottom') {
-            textTop = height - contentHeight - textBoxPadding;
+            textTop = localTop + height - contentHeight - textBoxPadding;
         }
 
-        textbox.set({ left: textBoxPadding, top: textTop });
+        textbox.set({ left: localLeft + textBoxPadding, top: textTop });
 
         // No clipPath here on purpose: the PHP/GD renderer never clips overflowing text
         // either, so leaving it unclipped keeps the preview honest about what will print.
