@@ -1010,33 +1010,34 @@
         const objects = Array.isArray(documentData.objects) ? documentData.objects : [];
         const ordered = objects.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
 
+        // Picture objects load asynchronously (image fetch) while placeholders/text are created
+        // synchronously. Resolve every object first and only add them to the canvas afterwards,
+        // in the sorted order, so stacking order doesn't depend on image load timing.
         const loadPromises = ordered.map((item) => new Promise((resolve) => {
             if (item.type === 'placeholder') {
-                const placeholder = createPlaceholderObject(item.x, item.y, item.width, item.height, item.rotation, item.placeholderIndex);
-                canvas.add(placeholder);
-                resolve();
+                resolve(createPlaceholderObject(item.x, item.y, item.width, item.height, item.rotation, item.placeholderIndex));
                 return;
             }
 
             if (item.type === 'text') {
-                const text = createTextObject(item.text, item.x, item.y, item.rotation, item.fontSize, item.color, item.fontPath, item.width, item.height, item.textAlign, item.verticalAlign);
-                canvas.add(text);
-                resolve();
+                resolve(createTextObject(item.text, item.x, item.y, item.rotation, item.fontSize, item.color, item.fontPath, item.width, item.height, item.textAlign, item.verticalAlign));
                 return;
             }
 
             if (item.type === 'picture' && item.path) {
-                createPictureObject(item.path, item.x, item.y, item.width, item.height, item.rotation, function (img) {
-                    canvas.add(img);
-                    resolve();
-                });
+                createPictureObject(item.path, item.x, item.y, item.width, item.height, item.rotation, resolve);
                 return;
             }
 
-            resolve();
+            resolve(null);
         }));
 
-        Promise.all(loadPromises).then(function () {
+        Promise.all(loadPromises).then(function (loadedObjects) {
+            loadedObjects.forEach(function (obj) {
+                if (obj) {
+                    canvas.add(obj);
+                }
+            });
             recomputePlaceholderCounter();
             canvas.requestRenderAll();
             saveHistory();
