@@ -376,6 +376,24 @@ $availableFontsJson = htmlspecialchars(json_encode($availableFonts, JSON_UNESCAP
                     </div>
                 </div>
 
+                <div id="picture_picker_modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+                        <div class="flex items-center justify-between p-4 border-b border-slate-200">
+                            <span class="font-semibold text-brand-1">Add Picture</span>
+                            <button id="picture_picker_close" type="button" class="w-8 h-8 rounded hover:bg-slate-100"><i class="fa fa-xmark"></i></button>
+                        </div>
+                        <div class="p-4 border-b border-slate-200 flex items-center gap-3">
+                            <label class="rounded bg-brand-1 text-white px-4 py-2 cursor-pointer font-semibold hover:opacity-90">
+                                <i class="fa fa-upload mr-2"></i>Upload
+                                <input id="picture_picker_upload_input" type="file" accept="image/*" class="hidden" />
+                            </label>
+                            <span id="picture_picker_upload_status" class="text-sm text-slate-500"></span>
+                        </div>
+                        <div id="picture_picker_grid" class="p-4 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 gap-3"></div>
+                        <div id="picture_picker_empty" class="hidden p-4 text-sm text-slate-500 text-center">No images available yet. Upload one to get started.</div>
+                    </div>
+                </div>
+
                 <input id="available_fonts_json" type="hidden" value="<?= $availableFontsJson ?>" />
                 <input id="image_settings_width" type="hidden" min="100" value="1500" />
                 <input id="image_settings_height" type="hidden" min="100" value="1000" />

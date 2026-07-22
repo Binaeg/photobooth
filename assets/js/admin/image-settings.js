@@ -669,8 +669,7 @@
         canvas.requestRenderAll();
     }
 
-    function addPicture() {
-        const source = prompt('Image path or URL', '/resources/img/demo/01.jpg');
+    function insertPicture(source) {
         if (!source) {
             return;
         }
@@ -680,6 +679,115 @@
             canvas.setActiveObject(img);
             canvas.requestRenderAll();
         });
+    }
+
+    const picturePickerModal = document.getElementById('picture_picker_modal');
+    const picturePickerGrid = document.getElementById('picture_picker_grid');
+    const picturePickerEmpty = document.getElementById('picture_picker_empty');
+    const picturePickerUploadInput = document.getElementById('picture_picker_upload_input');
+    const picturePickerUploadStatus = document.getElementById('picture_picker_upload_status');
+    const picturePickerClose = document.getElementById('picture_picker_close');
+
+    function closePicturePicker() {
+        if (picturePickerModal) {
+            picturePickerModal.classList.add('hidden');
+        }
+    }
+
+    function renderPictureGrid(images) {
+        if (!picturePickerGrid) {
+            return;
+        }
+
+        picturePickerGrid.innerHTML = '';
+        const hasImages = Array.isArray(images) && images.length > 0;
+        if (picturePickerEmpty) {
+            picturePickerEmpty.classList.toggle('hidden', hasImages);
+        }
+
+        if (!hasImages) {
+            return;
+        }
+
+        images.forEach(function (image) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.title = image.name;
+            button.className = 'group relative aspect-square rounded border border-slate-300 overflow-hidden bg-slate-100 hover:border-brand-1 focus:outline-none focus:ring-2 focus:ring-brand-1';
+
+            const img = document.createElement('img');
+            img.src = image.url;
+            img.alt = image.name;
+            img.className = 'w-full h-full object-cover';
+            button.appendChild(img);
+
+            button.addEventListener('click', function () {
+                insertPicture(image.url);
+                closePicturePicker();
+            });
+
+            picturePickerGrid.appendChild(button);
+        });
+    }
+
+    function loadPictureList() {
+        return fetch('pictures.php', { credentials: 'same-origin' })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                renderPictureGrid(data && data.success ? data.images : []);
+            })
+            .catch(function (error) {
+                console.log('Unable to load pictures', error);
+                renderPictureGrid([]);
+            });
+    }
+
+    function openPicturePicker() {
+        if (!picturePickerModal) {
+            return;
+        }
+
+        picturePickerModal.classList.remove('hidden');
+        if (picturePickerUploadStatus) {
+            picturePickerUploadStatus.textContent = '';
+        }
+        loadPictureList();
+    }
+
+    function uploadPicture(file) {
+        if (!file) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('files[]', file);
+
+        if (picturePickerUploadStatus) {
+            picturePickerUploadStatus.textContent = 'Uploading…';
+        }
+
+        fetch('pictures.php', { method: 'POST', body: formData, credentials: 'same-origin' })
+            .then(function (response) {
+                return response.json();
+            })
+            .then(function (data) {
+                if (picturePickerUploadStatus) {
+                    picturePickerUploadStatus.textContent = data && data.success ? 'Upload successful' : (data && data.message) || 'Upload failed';
+                }
+                return loadPictureList();
+            })
+            .catch(function (error) {
+                console.log('Unable to upload picture', error);
+                if (picturePickerUploadStatus) {
+                    picturePickerUploadStatus.textContent = 'Upload failed';
+                }
+            });
+    }
+
+    function addPicture() {
+        openPicturePicker();
     }
 
     function removeSelectedObject() {
@@ -1268,6 +1376,26 @@
         const addPictureButton = document.getElementById('is_add_picture');
         if (addPictureButton) {
             addPictureButton.addEventListener('click', addPicture);
+        }
+
+        if (picturePickerClose) {
+            picturePickerClose.addEventListener('click', closePicturePicker);
+        }
+
+        if (picturePickerModal) {
+            picturePickerModal.addEventListener('click', function (event) {
+                if (event.target === picturePickerModal) {
+                    closePicturePicker();
+                }
+            });
+        }
+
+        if (picturePickerUploadInput) {
+            picturePickerUploadInput.addEventListener('change', function () {
+                const file = picturePickerUploadInput.files && picturePickerUploadInput.files[0];
+                uploadPicture(file);
+                picturePickerUploadInput.value = '';
+            });
         }
 
         const undoButton = document.getElementById('is_undo');
