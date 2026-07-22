@@ -1074,6 +1074,7 @@
 
     function openSelectedLayout() {
         if (!savedLayoutsSelect) {
+            console.warn('[image-settings] openSelectedLayout: no savedLayoutsSelect element found');
             return;
         }
 
@@ -1082,10 +1083,13 @@
         const layoutMap = getSavedLayoutMap();
         const selectedLayout = layoutMap[fileName];
         if (!selectedLayout) {
+            console.warn('[image-settings] openSelectedLayout: no saved layout found for "' + fileName + '" in map', layoutMap);
             return;
         }
 
-        loadDocument(selectedLayout, true);
+        if (!loadDocument(selectedLayout, true)) {
+            console.warn('[image-settings] openSelectedLayout: loadDocument rejected the document for "' + fileName + '"', selectedLayout);
+        }
     }
 
     function onModeChange() {

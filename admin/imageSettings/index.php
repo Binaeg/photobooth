@@ -247,8 +247,8 @@ $singleConfigJson = htmlspecialchars(json_encode($singleConfig, JSON_UNESCAPED_S
 $collageConfigJson = htmlspecialchars(json_encode($collageConfig, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
 $singleLayoutFilesJson = htmlspecialchars(json_encode($singleLayoutFiles, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES);
 $collageLayoutFilesJson = htmlspecialchars(json_encode($collageLayoutFiles, JSON_UNESCAPED_SLASHES) ?: '[]', ENT_QUOTES);
-$singleLayoutMapJson = htmlspecialchars(json_encode($singleLayoutMap, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
-$collageLayoutMapJson = htmlspecialchars(json_encode($collageLayoutMap, JSON_UNESCAPED_SLASHES) ?: '{}', ENT_QUOTES);
+$singleLayoutMapJson = htmlspecialchars((empty($singleLayoutMap) ? '{}' : json_encode($singleLayoutMap, JSON_UNESCAPED_SLASHES)) ?: '{}', ENT_QUOTES);
+$collageLayoutMapJson = htmlspecialchars((empty($collageLayoutMap) ? '{}' : json_encode($collageLayoutMap, JSON_UNESCAPED_SLASHES)) ?: '{}', ENT_QUOTES);
 
 // Build the list of installed TTF fonts plus matching @font-face declarations, so the
 // canvas preview renders text with the exact same font file used by the PHP/GD renderer.
