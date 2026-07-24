@@ -436,7 +436,7 @@ class Image
     /**
      * Rotate and resize an image.
      */
-    public function rotateResizeImage(GdImage $image, int $degrees, string $bgColor = '#ffffff', bool $useTransparentBackground = false): GdImage|false
+    public function rotateResizeImage(GdImage $image, int $degrees, string $bgColor = '#ffffff', bool $useTransparentBackground = false, bool $growCanvas = false): GdImage|false
     {
         if ($degrees % 360 === 0) {
             // No rotation needed for 0, 360, -360, etc.
@@ -458,50 +458,60 @@ class Image
                 $old_width = imagesx($image);
                 $old_height = imagesy($image);
 
-                // Create a new true color image
-                $new = imagecreatetruecolor($old_width, $old_height);
-                if (!$new) {
-                    throw new \Exception('Failed to create new image canvas.');
-                }
                 if ($useTransparentBackground) {
-                    // Enable transparency
-                    imagesavealpha($new, true);
-                    imagealphablending($new, false);
-
-                    // Allocate a fully transparent background
-                    $background = imagecolorallocatealpha($new, 0, 0, 0, 127);
+                    $background = imagecolorallocatealpha($image, 0, 0, 0, 127);
                 } else {
                     $colorComponents = self::getColorComponents($bgColor);
                     [$bg_r, $bg_g, $bg_b, $bg_a] = $colorComponents;
                     // color background as defined
-                    $background = imagecolorallocatealpha($new, $bg_r, $bg_g, $bg_b, $bg_a);
-                }
-                if (!imagefill($new, 0, 0, (int)$background)) {
-                    throw new \Exception('Cannot fill image.');
+                    $background = imagecolorallocatealpha($image, $bg_r, $bg_g, $bg_b, $bg_a);
                 }
 
                 // rotate the image
-                $image = imagerotate($image, $degrees, (int)$background);
-                if (!$image) {
+                $rotated = imagerotate($image, $degrees, (int)$background);
+                if (!$rotated) {
                     throw new \Exception('Cannot rotate image.');
                 }
 
-                // make sure width and/or height fits into old dimensions
-                $image = self::resizeImage($image, intval($old_width), intval($old_height));
-                if (!$image instanceof \GdImage) {
-                    throw new \Exception('Failed to resize image.');
-                }
-                // get new dimensions after rotate and resize
-                $new_width = intval(imagesx($image));
-                $new_height = intval(imagesy($image));
+                if ($growCanvas) {
+                    // Keep the full rotated bounding box instead of shrinking it back down to
+                    // the original footprint, so tilted placeholders/layers don't get squeezed.
+                    if ($useTransparentBackground) {
+                        imagesavealpha($rotated, true);
+                    }
+                    $new = $rotated;
+                } else {
+                    // Create a new true color image
+                    $new = imagecreatetruecolor($old_width, $old_height);
+                    if (!$new) {
+                        throw new \Exception('Failed to create new image canvas.');
+                    }
+                    if ($useTransparentBackground) {
+                        // Enable transparency
+                        imagesavealpha($new, true);
+                        imagealphablending($new, false);
+                    }
+                    if (!imagefill($new, 0, 0, (int)$background)) {
+                        throw new \Exception('Cannot fill image.');
+                    }
 
-                // center rotated image
-                $x = intval(($old_width - $new_width) / 2);
-                $y = intval(($old_height - $new_height) / 2);
+                    // make sure width and/or height fits into old dimensions
+                    $rotated = self::resizeImage($rotated, intval($old_width), intval($old_height));
+                    if (!$rotated instanceof \GdImage) {
+                        throw new \Exception('Failed to resize image.');
+                    }
+                    // get new dimensions after rotate and resize
+                    $new_width = intval(imagesx($rotated));
+                    $new_height = intval(imagesy($rotated));
 
-                // copy rotated image to new image with old dimensions
-                if (!imagecopy($new, $image, $x, $y, 0, 0, $new_width, $new_height)) {
-                    throw new \Exception('Cannot copy rotated image to new image.');
+                    // center rotated image
+                    $x = intval(($old_width - $new_width) / 2);
+                    $y = intval(($old_height - $new_height) / 2);
+
+                    // copy rotated image to new image with old dimensions
+                    if (!imagecopy($new, $rotated, $x, $y, 0, 0, $new_width, $new_height)) {
+                        throw new \Exception('Cannot copy rotated image to new image.');
+                    }
                 }
             }
             $this->imageModified = true;
@@ -1124,7 +1134,8 @@ class Image
                 $imageResource = self::rotateResizeImage(
                     image: $imageResource,
                     degrees: $degrees,
-                    useTransparentBackground: true
+                    useTransparentBackground: true,
+                    growCanvas: true
                 );
                 if (!$imageResource instanceof \GdImage) {
                     throw new \Exception('Failed to rotate and resize image.');
