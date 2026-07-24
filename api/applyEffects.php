@@ -330,8 +330,19 @@ try {
                             $slotImage = $imageHandler->rotateResizeImage(
                                 image: $slotImage,
                                 degrees: $slotRotation,
-                                useTransparentBackground: true
+                                useTransparentBackground: true,
+                                growCanvas: true
                             );
+                            if ($slotImage instanceof \GdImage && abs($slotRotation) !== 90) {
+                                // imagerotate() rotates around the image's center, growing the
+                                // bounding box symmetrically. The editor stores the placeholder's
+                                // unrotated top-left corner and rotates around its center, so
+                                // re-center the paste origin here to keep both in sync.
+                                $rotatedW = imagesx($slotImage);
+                                $rotatedH = imagesy($slotImage);
+                                $slotX -= (int) (($rotatedW - $slotW) / 2);
+                                $slotY -= (int) (($rotatedH - $slotH) / 2);
+                            }
                         }
 
                         if ($slotImage instanceof \GdImage) {
