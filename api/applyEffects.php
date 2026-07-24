@@ -319,11 +319,16 @@ try {
                     if ($object['type'] === 'placeholder') {
                         $slotW = max(1, isset($object['width']) ? (int) $object['width'] : imagesx($imageResource));
                         $slotH = max(1, isset($object['height']) ? (int) $object['height'] : imagesy($imageResource));
-                        $slotX = isset($object['x']) ? (int) $object['x'] : 0;
-                        $slotY = isset($object['y']) ? (int) $object['y'] : 0;
+                        $slotX = isset($object['x']) ? (float) $object['x'] : 0.0;
+                        $slotY = isset($object['y']) ? (float) $object['y'] : 0.0;
+                        // The editor's fabric.js group uses originX/originY 'left'/'top', which
+                        // means the saved x/y is the position of the top-left corner AFTER
+                        // rotation is applied (fabric rotates around the object's center, then
+                        // reports where that corner ended up) - not the unrotated corner.
+                        $slotAngleDeg = isset($object['rotation']) ? (float) $object['rotation'] : 0.0;
                         // Editor rotation angles are clockwise, while GD's imagerotate() rotates
                         // counter-clockwise for positive degrees, so the sign must be flipped here.
-                        $slotRotation = isset($object['rotation']) ? -(int) $object['rotation'] : 0;
+                        $slotRotation = (int) round(-$slotAngleDeg);
 
                         $slotImage = $imageHandler->resizeCropImage($imageResource, $slotW, $slotH);
                         if ($slotImage instanceof \GdImage && $slotRotation !== 0) {
@@ -335,15 +340,24 @@ try {
                             );
                             if ($slotImage instanceof \GdImage && abs($slotRotation) !== 90) {
                                 // imagerotate() rotates around the image's center, growing the
-                                // bounding box symmetrically. The editor stores the placeholder's
-                                // unrotated top-left corner and rotates around its center, so
-                                // re-center the paste origin here to keep both in sync.
+                                // bounding box symmetrically. Find where to paste that grown box so
+                                // the corner point fabric tracked (the rotated top-left corner of
+                                // the original, unrotated box) still lands at (slotX, slotY).
                                 $rotatedW = imagesx($slotImage);
                                 $rotatedH = imagesy($slotImage);
-                                $slotX -= (int) (($rotatedW - $slotW) / 2);
-                                $slotY -= (int) (($rotatedH - $slotH) / 2);
+                                $angleRad = deg2rad($slotAngleDeg);
+                                $cosA = cos($angleRad);
+                                $sinA = sin($angleRad);
+                                // Offset of the unrotated top-left corner from center, rotated by the editor's angle.
+                                $cornerOffsetX = (-$slotW / 2) * $cosA + ($slotH / 2) * $sinA;
+                                $cornerOffsetY = (-$slotW / 2) * $sinA - ($slotH / 2) * $cosA;
+                                $slotX -= $rotatedW / 2 + $cornerOffsetX;
+                                $slotY -= $rotatedH / 2 + $cornerOffsetY;
                             }
                         }
+
+                        $slotX = (int) round($slotX);
+                        $slotY = (int) round($slotY);
 
                         if ($slotImage instanceof \GdImage) {
                             $copyW = imagesx($slotImage);

@@ -1108,13 +1108,18 @@ class Image
     public function addPicture(GdImage $imageResource, GdImage $destinationResource): void
     {
         try {
-            $dX = intval($this->addPictureX);
-            $dY = intval($this->addPictureY);
+            $dX = (float) $this->addPictureX;
+            $dY = (float) $this->addPictureY;
             $width = intval($this->addPictureWidth);
             $height = intval($this->addPictureHeight);
+            // The editor's fabric.js group uses originX/originY 'left'/'top', which means the
+            // saved x/y is the position of the top-left corner AFTER rotation is applied
+            // (fabric rotates around the object's center, then reports where that corner ended
+            // up) - not the unrotated corner.
+            $angleDeg = (float) $this->addPictureRotation;
             // Editor rotation angles are clockwise, while GD's imagerotate() rotates
             // counter-clockwise for positive degrees, so the sign must be flipped here.
-            $degrees = -intval($this->addPictureRotation);
+            $degrees = (int) round(-$angleDeg);
 
             if ($width <= 0 || $height <= 0) {
                 throw new \Exception('Invalid image dimensions or maximum dimensions.');
@@ -1140,19 +1145,28 @@ class Image
                 if (!$imageResource instanceof \GdImage) {
                     throw new \Exception('Failed to rotate and resize image.');
                 }
+                $newWidth = intval(imagesx($imageResource));
+                $newHeight = intval(imagesy($imageResource));
                 if (abs($degrees) != 90) {
-                    $newWidth = intval(imagesx($imageResource));
-                    $newHeight = intval(imagesy($imageResource));
                     // imagerotate() rotates around the image's center, growing the bounding
-                    // box symmetrically. The editor stores the placeholder's unrotated
-                    // top-left corner and rotates around its center, so re-center the paste
-                    // origin here to keep both in sync.
-                    $dX -= intval(($newWidth - $width) / 2);
-                    $dY -= intval(($newHeight - $height) / 2);
-                    $width = $newWidth;
-                    $height = $newHeight;
+                    // box symmetrically. Find where to paste that grown box so the corner point
+                    // fabric tracked (the rotated top-left corner of the original, unrotated
+                    // box) still lands at (dX, dY).
+                    $angleRad = deg2rad($angleDeg);
+                    $cosA = cos($angleRad);
+                    $sinA = sin($angleRad);
+                    // Offset of the unrotated top-left corner from center, rotated by the editor's angle.
+                    $cornerOffsetX = (-$width / 2) * $cosA + ($height / 2) * $sinA;
+                    $cornerOffsetY = (-$width / 2) * $sinA - ($height / 2) * $cosA;
+                    $dX -= $newWidth / 2 + $cornerOffsetX;
+                    $dY -= $newHeight / 2 + $cornerOffsetY;
                 }
+                $width = $newWidth;
+                $height = $newHeight;
             }
+
+            $dX = (int) round($dX);
+            $dY = (int) round($dY);
 
             if (!imagecopy($destinationResource, $imageResource, $dX, $dY, 0, 0, $width, $height)) {
                 throw new \Exception('Can\'t add image to resource.');
