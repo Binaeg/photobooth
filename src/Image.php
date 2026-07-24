@@ -1130,8 +1130,16 @@ class Image
                     throw new \Exception('Failed to rotate and resize image.');
                 }
                 if (abs($degrees) != 90) {
-                    $width = intval(imagesx($imageResource));
-                    $height = intval(imagesy($imageResource));
+                    $newWidth = intval(imagesx($imageResource));
+                    $newHeight = intval(imagesy($imageResource));
+                    // imagerotate() rotates around the image's center, growing the bounding
+                    // box symmetrically. The editor stores the placeholder's unrotated
+                    // top-left corner and rotates around its center, so re-center the paste
+                    // origin here to keep both in sync.
+                    $dX -= intval(($newWidth - $width) / 2);
+                    $dY -= intval(($newHeight - $height) / 2);
+                    $width = $newWidth;
+                    $height = $newHeight;
                 }
             }
 
